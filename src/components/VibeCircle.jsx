@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useVibe } from "../contexts/VibeContext";
 
 const R = 148;
 const PAD = 62;
@@ -270,9 +271,12 @@ function PatternsView({ logs }) {
   );
 }
 
-export default function VibeCircle() {
+// Export PatternsView for the Cycles tab
+export { PatternsView };
+
+export default function VibeCircle({ showSignOut = true }) {
   const { user, signOut } = useAuth();
-  const [tab, setTab] = useState("map");
+  const { recordVibe } = useVibe();
   const [mode, setMode] = useState("plot");
   const [plotPoints, setPlotPoints] = useState([]);
   const [drawPoints, setDrawPoints] = useState([]);
@@ -352,6 +356,8 @@ export default function VibeCircle() {
 
     if (!error && data) {
       setLogs(prev => [...prev, data]);
+      // Record vibe to context for Report tab
+      recordVibe(data);
       setSaved(true);
       setTimeout(() => { setSaved(false); clearAll(); }, 2400);
     }
@@ -375,17 +381,11 @@ export default function VibeCircle() {
           <div style={{width:36,height:1,background:"rgba(255,255,255,0.1)",margin:"15px auto 0"}}/>
         </div>
 
-        <div style={{position:"absolute",top:0,right:0}}>
-          <button onClick={handleSignOut} style={{...btnStyle(),fontSize:10,padding:"6px 12px"}}>sign out</button>
-        </div>
-
-        <div style={{display:"flex",justifyContent:"center",marginBottom:22}}>
-          <div style={{display:"flex",background:"rgba(255,255,255,0.04)",borderRadius:99,padding:3,border:"1px solid rgba(255,255,255,0.07)"}}>
-            {[{id:"map",label:"✦ map"},{id:"patterns",label:"◎ patterns"}].map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 28px",borderRadius:99,border:"none",background:tab===t.id?`${auraColor}40`:"transparent",color:tab===t.id?"white":"rgba(255,255,255,0.32)",fontFamily:"'Cormorant Garamond',serif",fontSize:13,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer",transition:"all 0.25s",boxShadow:tab===t.id?`0 0 18px ${auraColor}35`:"none"}}>{t.label}</button>
-            ))}
+        {showSignOut && (
+          <div style={{position:"absolute",top:0,right:0}}>
+            <button onClick={handleSignOut} style={{...btnStyle(),fontSize:10,padding:"6px 12px"}}>sign out</button>
           </div>
-        </div>
+        )}
 
         {loading && (
           <div style={{textAlign:"center",padding:"60px 20px",color:"rgba(255,255,255,0.3)"}}>
@@ -393,9 +393,7 @@ export default function VibeCircle() {
           </div>
         )}
 
-        {!loading && tab==="patterns" && <PatternsView logs={logs}/>}
-
-        {!loading && tab==="map" && <>
+        {!loading && <>
           <div style={{display:"flex",justifyContent:"center",marginBottom:18}}>
             <div style={{display:"flex",background:"rgba(255,255,255,0.04)",borderRadius:99,padding:3,border:"1px solid rgba(255,255,255,0.07)"}}>
               {["plot","draw"].map(m=>(
@@ -519,7 +517,7 @@ export default function VibeCircle() {
 
       </div>
 
-      {showExport&&(
+      {showExport && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div style={{width:"100%",maxWidth:500,background:"#0d0820",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20,padding:28}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
