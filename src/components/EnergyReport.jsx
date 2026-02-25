@@ -90,7 +90,7 @@ Return ONLY valid JSON:
 Use full sign names. The table uses abbreviations: Ar=Aries, Ta=Taurus, Ge=Gemini, Cn=Cancer, Le=Leo, Vi=Virgo, Li=Libra, Sc=Scorpio, Sg=Sagittarius, Cp=Capricorn, Aq=Aquarius, Pi=Pisces.
 Extract every row you can see. Be precise to the minute.`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -281,7 +281,7 @@ Respond with ONLY valid JSON, no markdown:
   "description": "1-2 sentences only. Connects the ${vibe} transmission to the most relevant planetary dynamic active right now. Specific, warm, uncanny. No generic astrology. Make them feel seen."
 }`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
@@ -322,7 +322,7 @@ Respond with ONLY valid JSON, no markdown:
 
 Include 3-4 transits from the REAL TRANSIT-TO-NATAL ASPECTS listed above. Order by tightness of orb (tightest first). Only use aspects with orbs under 5°.`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
@@ -357,7 +357,7 @@ Respond with ONLY valid JSON, no markdown:
   "para2": "2 sentences. Why the ${vibe} transmission makes sense in this context + what this transit is opening or asking."
 }`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
@@ -725,7 +725,7 @@ Generate three ritual paths. Respond with ONLY valid JSON:
 
 Include ALL four paths (honor, release, shift, channel). Each step specific, somatic, doable right now. Informed by the active transits. Not vague. Not toxic positivity.`;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/claude", {
     method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
   });

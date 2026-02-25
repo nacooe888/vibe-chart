@@ -53,10 +53,12 @@ git push -u origin main
 3. Add environment variables:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
+   - `ANTHROPIC_API_KEY` (for AI-generated readings)
 4. Deploy
 
 ## Tech Stack
 
 - React + Vite
 - Supabase (Auth + Database)
-- Vercel (Hosting)
+- Vercel (Hosting + Serverless Functions)
+- Anthropic Claude API (AI readings)
