@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { VibeProvider } from './contexts/VibeContext'
 import Auth from './components/Auth'
+import Onboarding from './components/Onboarding'
 import VibeCircle from './components/VibeCircle'
 import EnergyReport from './components/EnergyReport'
 import RitualTab from './components/RitualTab'
 import CyclesTab from './components/CyclesTab'
+import ProfileScreen from './components/ProfileScreen'
+import { loadProfile } from './lib/profileStorage'
 
 const TABS = [
   { id: 'map', label: '✦ map' },
@@ -63,12 +66,12 @@ function TabNav({ activeTab, onTabChange }) {
 }
 
 function MainApp() {
-  const { signOut } = useAuth()
   const [activeTab, setActiveTab] = useState('map')
+  const [showProfile, setShowProfile] = useState(false)
 
   return (
     <div style={{ paddingBottom: 80 }}>
-      {/* Sign out button - positioned absolutely */}
+      {/* Profile button - positioned absolutely */}
       <div style={{
         position: 'fixed',
         top: 36,
@@ -76,7 +79,7 @@ function MainApp() {
         zIndex: 40,
       }}>
         <button
-          onClick={signOut}
+          onClick={() => setShowProfile(true)}
           style={{
             padding: '6px 12px',
             borderRadius: 99,
@@ -90,26 +93,50 @@ function MainApp() {
             cursor: 'pointer',
           }}
         >
-          sign out
+          profile
         </button>
       </div>
 
       {/* Tab content */}
-      {activeTab === 'map' && <VibeCircle showSignOut={false} />}
+      {activeTab === 'map' && <VibeCircle showSignOut={false} onSave={() => setActiveTab('report')} />}
       {activeTab === 'report' && <EnergyReport />}
       {activeTab === 'ritual' && <RitualTab />}
       {activeTab === 'cycles' && <CyclesTab />}
 
       {/* Tab navigation */}
       <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Profile screen overlay */}
+      {showProfile && <ProfileScreen onClose={() => setShowProfile(false)} />}
     </div>
   )
 }
 
 function AppContent() {
   const { user, loading } = useAuth()
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [hasProfile, setHasProfile] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
-  if (loading) {
+  useEffect(() => {
+    if (!user) {
+      setProfileLoading(false)
+      return
+    }
+    loadProfile(user.id)
+      .then(profile => {
+        setHasProfile(!!profile)
+        setShowOnboarding(!profile)
+        setProfileLoading(false)
+      })
+      .catch(() => {
+        setHasProfile(false)
+        setShowOnboarding(true)
+        setProfileLoading(false)
+      })
+  }, [user])
+
+  if (loading || (user && profileLoading)) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -131,6 +158,10 @@ function AppContent() {
 
   if (!user) {
     return <Auth />
+  }
+
+  if (showOnboarding) {
+    return <Onboarding onComplete={() => { setShowOnboarding(false); setHasProfile(true); }} />
   }
 
   return <MainApp />

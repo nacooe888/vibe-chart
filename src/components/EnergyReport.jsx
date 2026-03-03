@@ -370,10 +370,146 @@ Respond with ONLY valid JSON, no markdown:
   return data.content?.[0]?.text || "";
 }
 
+// Generate transit-specific ritual options
+async function generateTransitRitualOptions(vibe, vibeData, transit, skyContext) {
+  const prompt = `You are a ritual guide writing practices specifically for working with a planetary transit.
+
+Vibe: ${vibe} at ${vibeData.intensity}% intensity
+Note: "${vibeData.note}"
+Transit: ${transit.name}
+
+${skyContext}
+
+Generate four ritual paths specifically for working with ${transit.name}. Respond with ONLY valid JSON:
+{
+  "honor": {
+    "title": "4-6 word title for honoring this transit energy",
+    "description": "1 sentence — what honoring ${transit.name} looks like right now",
+    "steps": ["step 1 — specific to this transit", "step 2", "step 3"]
+  },
+  "release": {
+    "title": "4-6 word title for releasing what this transit is dissolving",
+    "description": "1 sentence — what ${transit.name} is asking you to let go of",
+    "steps": ["step 1", "step 2", "step 3"]
+  },
+  "shift": {
+    "title": "4-6 word title for shifting the energy of this transit",
+    "description": "1 sentence — how to work constructively with ${transit.name}",
+    "steps": ["step 1", "step 2", "step 3"]
+  },
+  "channel": {
+    "title": "4-6 word title for channeling this transit productively",
+    "description": "1 sentence — where ${transit.name} wants to direct your energy",
+    "steps": ["step 1", "step 2", "step 3"]
+  }
+}
+
+Make each practice SPECIFIC to ${transit.name} — not generic vibe work. Reference what this specific planetary energy is doing.`;
+
+  const res = await fetch("/api/claude", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
+  });
+  const data = await res.json();
+  const text = data.content?.[0]?.text || "{}";
+  try { return JSON.parse(text.replace(/```json|```/g,"").trim()); }
+  catch { return null; }
+}
+
+const transitRitualCache = {};
+
+// ─── Transit Ritual Screen ───
+function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, latestVibe }) {
+  const vibeData = getVibeData(vibe, latestVibe);
+  const cacheKey = `transit-${vibe}-${transit.name}`;
+  const [options, setOptions] = useState(transitRitualCache[cacheKey] || null);
+  const [loading, setLoading] = useState(!transitRitualCache[cacheKey]);
+  const [selected, setSelected] = useState(null);
+
+  const PATH_META = {
+    honor:   { label:"honor it",   icon:"◎", fallback:"be consciously inside this transit energy" },
+    release: { label:"release it", icon:"⚡", fallback:"let this transit dissolve what needs to go" },
+    shift:   { label:"shift it",   icon:"→", fallback:"redirect this transit energy constructively" },
+    channel: { label:"channel it", icon:"⟡", fallback:"give this transit somewhere useful to go" },
+  };
+
+  useEffect(() => {
+    if (transitRitualCache[cacheKey]) { setOptions(transitRitualCache[cacheKey]); setLoading(false); return; }
+    generateTransitRitualOptions(vibe, vibeData, transit, skyContext)
+      .then(d => { transitRitualCache[cacheKey] = d; setOptions(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [cacheKey]);
+
+  return (
+    <div style={{ minHeight:"100vh", padding:"48px 28px 80px", fontFamily:"'Cormorant Garamond',serif", color:"white", maxWidth:480, margin:"0 auto" }}>
+      <button onClick={() => { setSelected(null); onBack(); }} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.45)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, letterSpacing:"0.2em", textTransform:"uppercase", cursor:"pointer", padding:0, marginBottom:40, display:"block" }}>← back</button>
+
+      <div style={{ textAlign:"center", marginBottom:32, animation:"fadeUp 0.5s ease" }}>
+        <div style={{ fontSize:32, color:transit.color, marginBottom:8, fontFamily:"serif" }}>{transit.glyph}</div>
+        <div style={{ fontSize:13, color:transit.color, letterSpacing:"0.28em", textTransform:"uppercase", marginBottom:8, fontWeight:400 }}>ritual for</div>
+        <div style={{ fontSize:22, fontWeight:300, letterSpacing:"0.04em", color:"rgba(255,255,255,0.92)", lineHeight:1.3 }}>
+          {selected && options?.[selected] ? options[selected].title : transit.name.toLowerCase()}
+        </div>
+      </div>
+
+      {loading && (
+        <div style={{ textAlign:"center", padding:"60px 0" }}>
+          <div style={{ fontSize:28, color:transit.color, animation:"spin-slow 4s linear infinite", display:"inline-block" }}>⟡</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:14, letterSpacing:"0.2em" }}>preparing your ritual</div>
+        </div>
+      )}
+
+      {options && !selected && (
+        <div style={{ display:"flex", flexDirection:"column", gap:10, animation:"fadeUp 0.5s ease" }}>
+          {["honor", "release", "shift", "channel"].map(p => {
+            const meta = PATH_META[p];
+            const opt = options[p];
+            return (
+              <div key={p} onClick={() => setSelected(p)}
+                style={{ background:`${transit.color}0e`, border:`1px solid ${transit.color}2e`, borderRadius:16, padding:"18px 22px", cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"center", gap:14 }}
+                onMouseEnter={e=>e.currentTarget.style.background=`${transit.color}1c`}
+                onMouseLeave={e=>e.currentTarget.style.background=`${transit.color}0e`}
+              >
+                <div style={{ fontSize:26, color:transit.color, flexShrink:0, width:34, textAlign:"center" }}>{meta.icon}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:15, color:transit.color, letterSpacing:"0.04em", marginBottom:4, fontWeight:400 }}>{meta.label}</div>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", lineHeight:1.5 }}>{opt?.description || meta.fallback}</div>
+                </div>
+                <div style={{ fontSize:14, color:"rgba(255,255,255,0.25)" }}>→</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {options && selected && (
+        <div style={{ animation:"fadeUp 0.5s ease" }}>
+          <div style={{ fontSize:14, color:"rgba(255,255,255,0.62)", textAlign:"center", marginBottom:28, lineHeight:1.8 }}>
+            {options[selected]?.description}
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:14, marginBottom:36 }}>
+            {options[selected]?.steps?.map((step, i) => (
+              <div key={i} style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+                <div style={{ width:28, height:28, borderRadius:"50%", border:`1px solid ${transit.color}55`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:2 }}>
+                  <span style={{ fontSize:12, color:transit.color, fontWeight:400 }}>{i+1}</span>
+                </div>
+                <div style={{ fontSize:15, color:"rgba(255,255,255,0.85)", lineHeight:1.85, paddingTop:3 }}>{step}</div>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setSelected(null)} style={{ width:"100%", padding:"14px", borderRadius:12, border:"1px solid rgba(255,255,255,0.12)", background:"transparent", color:"rgba(255,255,255,0.45)", fontFamily:"'Cormorant Garamond',serif", fontSize:13, letterSpacing:"0.18em", textTransform:"uppercase", cursor:"pointer" }}>
+            ← choose a different path
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Transit Deep Screen ───
 const transitCache = {};
 
-function TransitDeepScreen({ vibe, vibeColor, transit, onBack, skyContext, latestVibe }) {
+function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, skyContext, latestVibe }) {
   const vibeData = getVibeData(vibe, latestVibe);
   const cacheKey = `${vibe}-${transit.name}`;
   const [data, setData] = useState(transitCache[cacheKey] || null);
@@ -445,6 +581,29 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, skyContext, lates
             <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"16px 20px", textAlign:"center", marginBottom:24 }}>
               <div style={{ fontSize:10, letterSpacing:"0.22em", textTransform:"uppercase", color:"rgba(255,255,255,0.55)", marginBottom:8, fontWeight:400 }}>the full cycle</div>
               <div style={{ fontSize:14, color:"rgba(255,255,255,0.8)", lineHeight:1.8, fontWeight:300 }}>{data.cycle}</div>
+            </div>
+          )}
+
+          {/* Transit-specific ritual button */}
+          {data && !loading && (
+            <div
+              onClick={onRitual}
+              style={{
+                background:`${transit.color}0e`,
+                border:`1px solid ${transit.color}33`,
+                borderRadius:16, padding:"18px 24px",
+                cursor:"pointer", transition:"all 0.2s",
+                textAlign:"center",
+                marginBottom:24,
+              }}
+              onMouseEnter={e=>e.currentTarget.style.background=`${transit.color}1a`}
+              onMouseLeave={e=>e.currentTarget.style.background=`${transit.color}0e`}
+            >
+              <div style={{ fontSize:11, color:transit.color, letterSpacing:"0.28em", textTransform:"uppercase", marginBottom:8, fontWeight:400 }}>ritual</div>
+              <div style={{ fontSize:14, color:"rgba(255,255,255,0.75)", lineHeight:1.7 }}>
+                work with {transit.name.toLowerCase()}
+              </div>
+              <div style={{ marginTop:10, fontSize:16, color:transit.color, opacity:0.6 }}>⟡</div>
             </div>
           )}
 
@@ -1062,6 +1221,17 @@ export default function EnergyReport() {
           vibeColor={VIBE_COLORS[deepVibe]}
           transit={activeTransit}
           onBack={() => setScreen("deep")}
+          onRitual={() => setScreen("transit-ritual")}
+          skyContext={skyContext}
+          latestVibe={latestVibe}
+        />
+      )}
+      {screen === "transit-ritual" && activeTransit && deepVibe && (
+        <TransitRitualScreen
+          vibe={deepVibe}
+          vibeColor={VIBE_COLORS[deepVibe]}
+          transit={activeTransit}
+          onBack={() => setScreen("transit")}
           skyContext={skyContext}
           latestVibe={latestVibe}
         />

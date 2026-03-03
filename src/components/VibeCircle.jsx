@@ -115,7 +115,7 @@ function quantifyPoints(pts) {
 
 function btnStyle(color) {
   const base = { padding:"9px 24px", borderRadius:99, fontFamily:"'Cormorant Garamond',serif", fontSize:13, letterSpacing:"0.16em", textTransform:"uppercase", cursor:"pointer", transition:"all 0.25s" };
-  if (color) return { ...base, border:`1px solid ${color}60`, background:`${color}22`, color:"white", boxShadow:`0 0 18px ${color}28` };
+  if (color) return { ...base, border:`1px solid ${color}88`, background:`linear-gradient(135deg, ${color}55 0%, ${color}35 100%)`, color:"white", boxShadow:`0 0 20px ${color}44, inset 0 1px 0 rgba(255,255,255,0.15)`, textShadow:`0 0 10px ${color}` };
   return { ...base, border:"1px solid rgba(255,255,255,0.09)", background:"transparent", color:"rgba(255,255,255,0.32)" };
 }
 
@@ -274,7 +274,7 @@ function PatternsView({ logs }) {
 // Export PatternsView for the Cycles tab
 export { PatternsView };
 
-export default function VibeCircle({ showSignOut = true }) {
+export default function VibeCircle({ showSignOut = true, onSave }) {
   const { user, signOut } = useAuth();
   const { recordVibe } = useVibe();
   const [mode, setMode] = useState("plot");
@@ -359,7 +359,12 @@ export default function VibeCircle({ showSignOut = true }) {
       // Record vibe to context for Report tab
       recordVibe(data);
       setSaved(true);
-      setTimeout(() => { setSaved(false); clearAll(); }, 2400);
+      setTimeout(() => {
+        setSaved(false);
+        clearAll();
+        // Navigate to report tab after save
+        onSave?.();
+      }, 2400);
     }
   }
 
