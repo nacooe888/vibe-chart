@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
-import { saveChart, loadChart } from "../lib/chartStorage";
+import { loadChart } from "../lib/chartStorage";
 
 const ALL_VIBES = ["Expansive","Inspired","Energized","Sharp","Lit","Directive","Contracted","Uninspired","Depleted","Foggy","Volatile","Receptive"];
 
@@ -27,89 +27,6 @@ const VIBE_DEFAULTS = {
   Volatile:    { intensity:82, vibesPresent:["Volatile","Energized"],          verticalBias:"expansive",   horizontalBias:"directive",  note:"charged, edge of something" },
   Receptive:   { intensity:55, vibesPresent:["Receptive","Foggy"],             verticalBias:"contractive", horizontalBias:"receptive",  note:"soft, taking things in" },
 };
-
-// ─────────────────────────────────────────────
-// CHART EXTRACTION — Claude API reads image
-// ─────────────────────────────────────────────
-async function extractChartFromImage(base64Image, chartType) {
-  const prompt = chartType === 'natal'
-    ? `You are reading an astrological chart table. Extract all planetary positions precisely.
-The image shows a natal chart data table with columns for Point (planet symbol), Longitude, Declination, and House.
-
-Return ONLY valid JSON:
-{
-  "type": "natal",
-  "name": "person's name if visible",
-  "date": "birth date if visible",
-  "location": "birth location if visible",
-  "ayanamsa": "ayanamsa used if visible",
-  "positions": {
-    "Sun": { "sign": "Libra", "degree": 11, "minute": 21, "second": 0, "house": 4 },
-    "Moon": { "sign": "Gemini", "degree": 3, "minute": 16, "second": 31, "house": 12 },
-    "Mercury": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Venus": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Mars": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Jupiter": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Saturn": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Uranus": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Neptune": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Pluto": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Chiron": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "NorthNode": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "ASC": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 1 },
-    "MC": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 10 }
-  }
-}
-
-Use full sign names (Aries, Taurus, Gemini, Cancer, Leo, Virgo, Libra, Scorpio, Sagittarius, Capricorn, Aquarius, Pisces).
-The table uses abbreviations: Ar=Aries, Ta=Taurus, Ge=Gemini, Cn=Cancer, Le=Leo, Vi=Virgo, Li=Libra, Sc=Scorpio, Sg=Sagittarius, Cp=Capricorn, Aq=Aquarius, Pi=Pisces.
-Extract every row you can see. Be precise to the minute.`
-    : `You are reading an astrological transit chart table. Extract all current planetary positions precisely.
-The image shows a transits data table with columns for Point (planet symbol), Longitude, Declination, and House.
-
-Return ONLY valid JSON:
-{
-  "type": "transits",
-  "date": "date if visible",
-  "location": "location if visible",
-  "positions": {
-    "Sun": { "sign": "Aquarius", "degree": 11, "minute": 56, "second": 1, "house": 12 },
-    "Moon": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Mercury": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Venus": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Mars": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Jupiter": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Saturn": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Uranus": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Neptune": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Pluto": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 },
-    "Chiron": { "sign": "...", "degree": 0, "minute": 0, "second": 0, "house": 0 }
-  }
-}
-
-Use full sign names. The table uses abbreviations: Ar=Aries, Ta=Taurus, Ge=Gemini, Cn=Cancer, Le=Leo, Vi=Virgo, Li=Libra, Sc=Scorpio, Sg=Sagittarius, Cp=Capricorn, Aq=Aquarius, Pi=Pisces.
-Extract every row you can see. Be precise to the minute.`;
-
-  const res = await fetch("/api/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64Image } },
-          { type: "text", text: prompt }
-        ]
-      }]
-    })
-  });
-  const data = await res.json();
-  const text = data.content?.[0]?.text || "{}";
-  try { return JSON.parse(text.replace(/```json|```/g, "").trim()); }
-  catch { return null; }
-}
 
 // Convert chart JSON to SKY_CONTEXT string for the AI reading prompts
 function buildSkyContext(natal, transits) {
@@ -285,7 +202,7 @@ Respond with ONLY valid JSON, no markdown:
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      model:"claude-sonnet-4-20250514",
+      model:"claude-haiku-4-5-20251001",
       max_tokens:400,
       messages:[{role:"user",content:prompt}],
     }),
@@ -326,7 +243,7 @@ Include 3-4 transits from the REAL TRANSIT-TO-NATAL ASPECTS listed above. Order 
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      model:"claude-sonnet-4-20250514",
+      model:"claude-sonnet-4-6",
       max_tokens:1000,
       messages:[{role:"user",content:prompt}],
     }),
@@ -361,7 +278,7 @@ Respond with ONLY valid JSON, no markdown:
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      model:"claude-sonnet-4-20250514",
+      model:"claude-sonnet-4-6",
       max_tokens:1200,
       messages:[{role:"user",content:prompt}],
     }),
@@ -408,7 +325,7 @@ Make each practice SPECIFIC to ${transit.name} — not generic vibe work. Refere
 
   const res = await fetch("/api/claude", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
   });
   const data = await res.json();
   const text = data.content?.[0]?.text || "{}";
@@ -706,8 +623,25 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
   );
 }
 
+// Build a short sky summary line from the transit chart positions
+function getSkySubtitle(transitChart) {
+  if (!transitChart?.positions) return "upload your chart for a live reading";
+  const p = transitChart.positions;
+  const parts = [];
+  // Moon sign
+  if (p.Moon?.sign) parts.push(`moon in ${p.Moon.sign.toLowerCase()}`);
+  // Dominant sign (most planets)
+  const counts = {};
+  Object.values(p).forEach(pos => { if (pos?.sign) counts[pos.sign] = (counts[pos.sign] || 0) + 1; });
+  const dominant = Object.entries(counts).sort(([,a],[,b]) => b-a)[0];
+  if (dominant && dominant[1] >= 3) parts.push(`${dominant[1]} planets in ${dominant[0].toLowerCase()}`);
+  // Date label if available
+  const dateLabel = transitChart.date ? ` · ${transitChart.date}` : '';
+  return parts.join(' · ') + dateLabel || (transitChart.date || 'current sky');
+}
+
 // ─── Report Screen ───
-function ReportScreen({ onDeepen, onSettings, natalChart, transitChart, latestVibe }) {
+function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe }) {
   const [selectedVibe, setSelectedVibe] = useState(null);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -737,18 +671,13 @@ function ReportScreen({ onDeepen, onSettings, natalChart, transitChart, latestVi
     <div style={{ minHeight:"100vh", padding:"0 0 80px" }}>
       <div style={{ maxWidth:480, margin:"0 auto", padding:"40px 28px 0" }}>
 
-        {/* Settings button */}
-        <div style={{ position:"absolute", top:40, right:28 }}>
-          <button onClick={onSettings} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:18, cursor:"pointer", padding:4 }}>✦</button>
-        </div>
-
         {/* Date */}
         <div style={{ textAlign:"center", marginBottom:32, animation:"fadeUp 0.5s ease" }}>
           <div style={{ fontSize:13, letterSpacing:"0.12em", textTransform:"uppercase", color:"rgba(255,255,255,0.7)", marginBottom:8, fontWeight:400 }}>
             {now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
           </div>
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", letterSpacing:"0.04em" }}>
-            saturn conjunct neptune · moon in taurus · 6 planets in aquarius
+            {getSkySubtitle(transitChart)}
           </div>
         </div>
 
@@ -806,7 +735,10 @@ function ReportScreen({ onDeepen, onSettings, natalChart, transitChart, latestVi
         {!selectedVibe && !loading && (
           <div style={{ textAlign:"center", animation:"fadeUp 0.5s 0.2s ease both" }}>
             <div style={{ fontSize:14, color:"rgba(255,255,255,0.55)", lineHeight:1.9, padding:"0 12px" }}>
-              Six planets have gathered in Aquarius. Saturn and Neptune meet exactly — structure dissolving into vision. Select a vibe above to see how this sky meets you specifically.
+              {transitChart
+                ? "The sky is loaded. Select a vibe above to see how it meets you specifically."
+                : "Upload your transit chart in settings to get a reading calibrated to today's sky. Or select a vibe and read from the demo chart."
+              }
             </div>
           </div>
         )}
@@ -886,7 +818,7 @@ Include ALL four paths (honor, release, shift, channel). Each step specific, som
 
   const res = await fetch("/api/claude", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
   });
   const data = await res.json();
   const text = data.content?.[0]?.text || "{}";
@@ -991,152 +923,6 @@ function RitualScreen({ vibe, vibeColor, onBack, skyContext, latestVibe }) {
   );
 }
 
-// ─── Settings Screen ───
-function SettingsScreen({ onBack, onChartsUpdated, userId }) {
-  const [natalChart, setNatalChart] = useState(null);
-  const [transitChart, setTransitChart] = useState(null);
-  const [uploadingNatal, setUploadingNatal] = useState(false);
-  const [uploadingTransit, setUploadingTransit] = useState(false);
-  const [natalError, setNatalError] = useState(null);
-  const [transitError, setTransitError] = useState(null);
-
-  // Load saved charts on mount
-  useEffect(() => {
-    if (!userId) return;
-    loadChart(userId, 'natal').then(d => { if (d) setNatalChart(d); });
-    loadChart(userId, 'transits').then(d => { if (d) setTransitChart(d); });
-  }, [userId]);
-
-  const handleImageUpload = async (file, type) => {
-    if (!file || !userId) return;
-    const setter = type === 'natal' ? setUploadingNatal : setUploadingTransit;
-    const errSetter = type === 'natal' ? setNatalError : setTransitError;
-    setter(true);
-    errSetter(null);
-
-    try {
-      // Convert to base64
-      const base64 = await new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = () => res(reader.result.split(',')[1]);
-        reader.onerror = rej;
-        reader.readAsDataURL(file);
-      });
-
-      const result = await extractChartFromImage(base64, type);
-      if (!result || !result.positions) throw new Error("Couldn't read chart — try a clearer screenshot");
-
-      await saveChart(userId, type, result);
-      if (type === 'natal') setNatalChart(result);
-      else setTransitChart(result);
-      onChartsUpdated();
-    } catch (e) {
-      errSetter(e.message || "Upload failed — try again");
-    }
-    setter(false);
-  };
-
-  const PlanetList = ({ chart }) => {
-    if (!chart?.positions) return null;
-    const planets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','ASC','MC'];
-    return (
-      <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:10 }}>
-        {planets.filter(p => chart.positions[p]).map(p => {
-          const pos = chart.positions[p];
-          return (
-            <div key={p} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"4px 10px", fontSize:11, color:"rgba(255,255,255,0.65)" }}>
-              {p} {pos.sign?.slice(0,2)} {pos.degree}°{pos.minute ? pos.minute+"'" : ''}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const UploadSection = ({ type, chart, uploading, error }) => {
-    const isNatal = type === 'natal';
-    const color = isNatal ? "#C49FFF" : "#7FB8FF";
-    const label = isNatal ? "natal chart" : "current transits";
-    const hint = isNatal ? "Upload once — your birth chart never changes" : "Update whenever you want fresh transit readings";
-    const meta = isNatal
-      ? (chart?.date ? `${chart.name || 'chart'} · ${chart.date}` : null)
-      : (chart?.date ? `last updated: ${chart.date}` : null);
-
-    return (
-      <div style={{ marginBottom:24 }}>
-        <div style={{ fontSize:11, letterSpacing:"0.22em", textTransform:"uppercase", color:"rgba(255,255,255,0.55)", marginBottom:8, fontWeight:400 }}>{label}</div>
-
-        {chart ? (
-          <div style={{ background:`${color}0a`, border:`1px solid ${color}28`, borderRadius:14, padding:"16px 18px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-              <div>
-                <div style={{ fontSize:13, color:color, marginBottom:2 }}>✓ loaded</div>
-                {meta && <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", fontStyle:"italic" }}>{meta}</div>}
-              </div>
-              <label style={{ cursor:"pointer" }}>
-                <input type="file" accept="image/*" style={{ display:"none" }} onChange={e => handleImageUpload(e.target.files[0], type)} />
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", letterSpacing:"0.15em", textTransform:"uppercase", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"5px 10px", cursor:"pointer" }}>update</div>
-              </label>
-            </div>
-            <PlanetList chart={chart} />
-          </div>
-        ) : (
-          <label style={{ cursor:"pointer", display:"block" }}>
-            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e => handleImageUpload(e.target.files[0], type)} />
-            <div style={{
-              border:`1px dashed ${color}44`, borderRadius:14, padding:"24px",
-              textAlign:"center", cursor:"pointer", transition:"all 0.2s",
-              background:`${color}05`,
-            }}>
-              {uploading ? (
-                <div>
-                  <div style={{ fontSize:22, color, animation:"spin-slow 3s linear infinite", display:"inline-block", marginBottom:8 }}>✦</div>
-                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", letterSpacing:"0.15em" }}>reading your chart</div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize:28, color, marginBottom:8, opacity:0.6 }}>↑</div>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", marginBottom:4 }}>upload {label}</div>
-                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", fontStyle:"italic" }}>{hint}</div>
-                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.2)", marginTop:8 }}>screenshot the table view from your chart app</div>
-                </div>
-              )}
-            </div>
-          </label>
-        )}
-        {error && <div style={{ fontSize:12, color:"#FF7F9B", marginTop:8, textAlign:"center", fontStyle:"italic" }}>{error}</div>}
-        {uploading && !chart && (
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", textAlign:"center", marginTop:8, fontStyle:"italic" }}>this takes ~10 seconds</div>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ minHeight:"100vh", padding:"48px 28px 80px", fontFamily:"'Cormorant Garamond',serif", color:"white", maxWidth:480, margin:"0 auto" }}>
-      <button onClick={onBack} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, letterSpacing:"0.2em", textTransform:"uppercase", cursor:"pointer", padding:0, marginBottom:40, display:"block" }}>← back</button>
-
-      <div style={{ textAlign:"center", marginBottom:36 }}>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.45)", letterSpacing:"0.28em", textTransform:"uppercase", marginBottom:8, fontWeight:400 }}>chart settings</div>
-        <div style={{ fontSize:26, fontWeight:300, color:"rgba(255,255,255,0.88)" }}>your sky data</div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.35)", marginTop:8, lineHeight:1.7, fontStyle:"italic" }}>
-          Upload the table view from your chart app for precise readings. Screenshot the longitude table — not the wheel.
-        </div>
-      </div>
-
-      <UploadSection type="natal" chart={natalChart} uploading={uploadingNatal} error={natalError} />
-      <UploadSection type="transits" chart={transitChart} uploading={uploadingTransit} error={transitError} />
-
-      <div style={{ marginTop:8, padding:"16px 18px", background:"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:12 }}>
-        <div style={{ fontSize:10, letterSpacing:"0.2em", textTransform:"uppercase", color:"rgba(255,255,255,0.25)", marginBottom:6 }}>tip</div>
-        <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", lineHeight:1.7, fontStyle:"italic" }}>
-          Use the longitude table view, not the chart wheel. Any sidereal chart app works — AstroApp, Astro Gold, iPhemeris. Fagan-Allen ayanamsa recommended.
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Component ───
 export default function EnergyReport() {
   const { user } = useAuth();
@@ -1155,12 +941,6 @@ export default function EnergyReport() {
     loadChart(user.id, 'natal').then(d => { if (d) setNatalChart(d); });
     loadChart(user.id, 'transits').then(d => { if (d) setTransitChart(d); });
   }, [user?.id]);
-
-  const handleChartsUpdated = () => {
-    if (!user?.id) return;
-    loadChart(user.id, 'natal').then(d => { if (d) setNatalChart(d); });
-    loadChart(user.id, 'transits').then(d => { if (d) setTransitChart(d); });
-  };
 
   const bgColor = activeTransit ? activeTransit.color : (deepVibe || ritualVibe) ? VIBE_COLORS[deepVibe || ritualVibe] : "#9FB4FF";
   const skyContext = getSkyContext(natalChart, transitChart);
@@ -1182,17 +962,9 @@ export default function EnergyReport() {
       {screen === "report" && (
         <ReportScreen
           onDeepen={v => { setDeepVibe(v); setScreen("deep"); }}
-          onSettings={() => setScreen("settings")}
           natalChart={natalChart}
           transitChart={transitChart}
           latestVibe={latestVibe}
-        />
-      )}
-      {screen === "settings" && (
-        <SettingsScreen
-          onBack={() => setScreen("report")}
-          onChartsUpdated={handleChartsUpdated}
-          userId={user?.id}
         />
       )}
       {screen === "deep" && deepVibe && (

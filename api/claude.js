@@ -1,6 +1,15 @@
 // Vercel serverless function to proxy requests to Anthropic API
 // This avoids CORS issues and keeps the API key server-side
 
+// Increase body size limit to 10MB for base64-encoded chart screenshot uploads
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+}
+
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -10,7 +19,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured — add it to Vercel environment variables' });
   }
 
   try {
