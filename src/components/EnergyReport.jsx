@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
 import { loadChart, saveChart } from "../lib/chartStorage";
@@ -658,11 +658,12 @@ function getSkySubtitle(transitChart) {
 }
 
 // ─── Report Screen ───
-function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe }) {
+function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitLoading }) {
   const [selectedVibe, setSelectedVibe] = useState(null);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const skyContext = getSkyContext(natalChart, transitChart);
+  const hasLiveData = !!(natalChart || transitChart);
 
   const vibeColor = selectedVibe ? VIBE_COLORS[selectedVibe] : "#9FB4FF";
   const now = new Date();
@@ -675,14 +676,14 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe }) {
   }, [latestVibe]);
 
   useEffect(() => {
-    if (!selectedVibe) { setReport(null); return; }
+    if (!selectedVibe || transitLoading) { setReport(null); return; }
     setReport(null);
     setLoading(true);
     const vibeData = getVibeData(selectedVibe, latestVibe);
     generateShortReport(selectedVibe, vibeData, skyContext)
       .then(r => { setReport(r); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [selectedVibe]);
+  }, [selectedVibe, hasLiveData]);
 
   return (
     <div style={{ minHeight:"100vh", padding:"0 0 80px" }}>
@@ -694,7 +695,7 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe }) {
             {now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
           </div>
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", letterSpacing:"0.04em" }}>
-            {getSkySubtitle(transitChart)}
+            {transitLoading ? 'reading the sky...' : getSkySubtitle(transitChart)}
           </div>
         </div>
 
@@ -951,6 +952,8 @@ export default function EnergyReport() {
   const [ritualVibe, setRitualVibe] = useState(null);
   const [natalChart, setNatalChart] = useState(null);
   const [transitChart, setTransitChart] = useState(null);
+  const [transitLoading, setTransitLoading] = useState(true);
+  const wasLiveRef = useRef(false);
 
   // Load saved charts on mount; refresh transits if stale (>6h)
   useEffect(() => {
@@ -961,10 +964,10 @@ export default function EnergyReport() {
       const isStale = !cached?.fetchedAt || Date.now() - new Date(cached.fetchedAt).getTime() > SIX_HOURS_MS;
       if (!isStale) {
         setTransitChart(cached);
+        setTransitLoading(false);
         return;
       }
       try {
-        console.log('[transits] fetching live transit chart...');
         const res = await fetch('/api/astro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -972,7 +975,6 @@ export default function EnergyReport() {
         });
         if (res.ok) {
           const fresh = await res.json();
-          console.log('[transits] fetched:', fresh);
           saveChart(user.id, 'transits', fresh);
           setTransitChart(fresh);
         } else {
@@ -984,8 +986,20 @@ export default function EnergyReport() {
         console.error('[transits] fetch error:', err);
         if (cached) setTransitChart(cached);
       }
+      setTransitLoading(false);
     });
   }, [user?.id]);
+
+  // Clear all report caches the first time live chart data arrives
+  useEffect(() => {
+    const isLive = !!(natalChart || transitChart);
+    if (isLive && !wasLiveRef.current) {
+      [deepReportCache, transitCache, ritualCache, transitRitualCache].forEach(c =>
+        Object.keys(c).forEach(k => delete c[k])
+      );
+    }
+    wasLiveRef.current = isLive;
+  }, [natalChart, transitChart]);
 
   const bgColor = activeTransit ? activeTransit.color : (deepVibe || ritualVibe) ? VIBE_COLORS[deepVibe || ritualVibe] : "#9FB4FF";
   const skyContext = getSkyContext(natalChart, transitChart);
@@ -1010,6 +1024,7 @@ export default function EnergyReport() {
           natalChart={natalChart}
           transitChart={transitChart}
           latestVibe={latestVibe}
+          transitLoading={transitLoading}
         />
       )}
       {screen === "deep" && deepVibe && (
