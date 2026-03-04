@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { saveProfile } from '../lib/profileStorage'
+import { saveChart } from '../lib/chartStorage'
 
 export default function Onboarding({ onComplete }) {
   const { user } = useAuth()
@@ -49,6 +50,30 @@ export default function Onboarding({ onComplete }) {
         birth_time_unknown: birthTimeUnknown,
         birth_location: birthLocation || null,
       })
+
+      // Generate natal chart if birth info is provided (non-blocking)
+      if (birthDate && birthLocation) {
+        try {
+          const res = await fetch('/api/astro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'natal',
+              name: name || undefined,
+              birthDate,
+              birthTime: birthTimeUnknown ? null : (birthTime || null),
+              birthLocation,
+            }),
+          })
+          if (res.ok) {
+            const chartData = await res.json()
+            await saveChart(user.id, 'natal', chartData)
+          }
+        } catch (chartErr) {
+          console.warn('Natal chart generation failed, continuing:', chartErr)
+        }
+      }
+
       onComplete()
     } catch (err) {
       setError(err.message || 'Failed to save profile')

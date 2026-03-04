@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { loadProfile, saveProfile } from '../lib/profileStorage'
-import { loadChart } from '../lib/chartStorage'
+import { loadChart, saveChart } from '../lib/chartStorage'
 
 export default function ProfileScreen({ onClose }) {
   const { user, signOut } = useAuth()
@@ -51,6 +51,30 @@ export default function ProfileScreen({ onClose }) {
       })
       setProfile(updated)
       setEditing(false)
+
+      // Regenerate natal chart if birth info changed
+      if (birthDate && birthLocation) {
+        try {
+          const res = await fetch('/api/astro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'natal',
+              name: name || undefined,
+              birthDate,
+              birthTime: birthTimeUnknown ? null : (birthTime || null),
+              birthLocation,
+            }),
+          })
+          if (res.ok) {
+            const chartData = await res.json()
+            await saveChart(user.id, 'natal', chartData)
+            setNatalChart(chartData)
+          }
+        } catch (chartErr) {
+          console.warn('Natal chart regeneration failed:', chartErr)
+        }
+      }
     } catch (err) {
       setError(err.message || 'Failed to save')
     }

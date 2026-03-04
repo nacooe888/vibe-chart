@@ -5,6 +5,9 @@
   "functions": {
     "api/claude.js": {
       "maxDuration": 30
+    },
+    "api/astro.js": {
+      "maxDuration": 30
     }
   }
 }

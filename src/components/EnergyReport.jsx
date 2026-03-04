@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
-import { loadChart } from "../lib/chartStorage";
+import { loadChart, saveChart } from "../lib/chartStorage";
 
 const ALL_VIBES = ["Expansive","Inspired","Energized","Sharp","Lit","Directive","Contracted","Uninspired","Depleted","Foggy","Volatile","Receptive"];
 
@@ -935,11 +935,34 @@ export default function EnergyReport() {
   const [natalChart, setNatalChart] = useState(null);
   const [transitChart, setTransitChart] = useState(null);
 
-  // Load saved charts on mount
+  // Load saved charts on mount; refresh transits if stale (>6h)
   useEffect(() => {
     if (!user?.id) return;
     loadChart(user.id, 'natal').then(d => { if (d) setNatalChart(d); });
-    loadChart(user.id, 'transits').then(d => { if (d) setTransitChart(d); });
+    loadChart(user.id, 'transits').then(async cached => {
+      const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+      const isStale = !cached?.fetchedAt || Date.now() - new Date(cached.fetchedAt).getTime() > SIX_HOURS_MS;
+      if (!isStale) {
+        setTransitChart(cached);
+        return;
+      }
+      try {
+        const res = await fetch('/api/astro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'transits' }),
+        });
+        if (res.ok) {
+          const fresh = await res.json();
+          saveChart(user.id, 'transits', fresh);
+          setTransitChart(fresh);
+        } else if (cached) {
+          setTransitChart(cached);
+        }
+      } catch {
+        if (cached) setTransitChart(cached);
+      }
+    });
   }, [user?.id]);
 
   const bgColor = activeTransit ? activeTransit.color : (deepVibe || ritualVibe) ? VIBE_COLORS[deepVibe || ritualVibe] : "#9FB4FF";
