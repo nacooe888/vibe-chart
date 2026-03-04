@@ -964,6 +964,7 @@ export default function EnergyReport() {
         return;
       }
       try {
+        console.log('[transits] fetching live transit chart...');
         const res = await fetch('/api/astro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -971,12 +972,16 @@ export default function EnergyReport() {
         });
         if (res.ok) {
           const fresh = await res.json();
+          console.log('[transits] fetched:', fresh);
           saveChart(user.id, 'transits', fresh);
           setTransitChart(fresh);
-        } else if (cached) {
-          setTransitChart(cached);
+        } else {
+          const errBody = await res.text();
+          console.error('[transits] api/astro failed:', res.status, errBody);
+          if (cached) setTransitChart(cached);
         }
-      } catch {
+      } catch (err) {
+        console.error('[transits] fetch error:', err);
         if (cached) setTransitChart(cached);
       }
     });
