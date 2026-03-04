@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
 import { loadChart, saveChart } from "../lib/chartStorage";
+import { loadProfile } from "../lib/profileStorage";
 
 const ALL_VIBES = ["Expansive","Inspired","Energized","Sharp","Lit","Directive","Contracted","Uninspired","Depleted","Foggy","Volatile","Receptive"];
 
@@ -553,17 +554,19 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, skyCont
 // ─── Deep Screen ───
 const deepReportCache = {};
 
-function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, latestVibe }) {
+function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, latestVibe, hasNatal }) {
   const vibeData = getVibeData(vibe, latestVibe);
   const [data, setData] = useState(deepReportCache[vibe] || null);
   const [loading, setLoading] = useState(!deepReportCache[vibe]);
 
   useEffect(() => {
     if (deepReportCache[vibe]) { setData(deepReportCache[vibe]); setLoading(false); return; }
+    setData(null);
+    setLoading(true);
     generateDeepReport(vibe, vibeData, skyContext)
       .then(d => { deepReportCache[vibe] = d; setData(d); setLoading(false); })
       .catch(() => { const fallback = { paragraph:"The sky is meeting you exactly where you are.", transits:[] }; deepReportCache[vibe] = fallback; setData(fallback); setLoading(false); });
-  }, [vibe]);
+  }, [vibe, hasNatal]);
 
   return (
     <div style={{ minHeight:"100vh", padding:"48px 28px 80px", fontFamily:"'Cormorant Garamond',serif", color:"white", maxWidth:480, margin:"0 auto" }}>
@@ -954,11 +957,38 @@ export default function EnergyReport() {
   const [transitChart, setTransitChart] = useState(null);
   const [transitLoading, setTransitLoading] = useState(true);
   const wasLiveRef = useRef(false);
+  const hadNatalRef = useRef(false);
 
   // Load saved charts on mount; refresh transits if stale (>6h)
   useEffect(() => {
     if (!user?.id) return;
-    loadChart(user.id, 'natal').then(d => { if (d) setNatalChart(d); });
+    loadChart(user.id, 'natal').then(async existing => {
+      if (existing) { setNatalChart(existing); return; }
+      // No chart saved — try generating from profile birth info
+      try {
+        const profile = await loadProfile(user.id);
+        if (profile?.birth_date && profile?.birth_location) {
+          const res = await fetch('/api/astro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'natal',
+              name: profile.name || undefined,
+              birthDate: profile.birth_date,
+              birthTime: profile.birth_time_unknown ? null : (profile.birth_time || null),
+              birthLocation: profile.birth_location,
+            }),
+          });
+          if (res.ok) {
+            const chartData = await res.json();
+            await saveChart(user.id, 'natal', chartData);
+            setNatalChart(chartData);
+          }
+        }
+      } catch (e) {
+        console.warn('[natal] auto-generate failed:', e);
+      }
+    });
     loadChart(user.id, 'transits').then(async cached => {
       const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
       const isStale = !cached?.fetchedAt || Date.now() - new Date(cached.fetchedAt).getTime() > SIX_HOURS_MS;
@@ -1001,15 +1031,18 @@ export default function EnergyReport() {
     return () => clearTimeout(t);
   }, []);
 
-  // Clear all report caches the first time live chart data arrives
+  // Clear all report caches when live data first arrives or when natal chart newly loads
   useEffect(() => {
     const isLive = !!(natalChart || transitChart);
-    if (isLive && !wasLiveRef.current) {
+    const hasNatal = !!natalChart;
+    const shouldClear = (isLive && !wasLiveRef.current) || (hasNatal && !hadNatalRef.current);
+    if (shouldClear) {
       [deepReportCache, transitCache, ritualCache, transitRitualCache].forEach(c =>
         Object.keys(c).forEach(k => delete c[k])
       );
     }
     wasLiveRef.current = isLive;
+    hadNatalRef.current = hasNatal;
   }, [natalChart, transitChart]);
 
   const bgColor = activeTransit ? activeTransit.color : (deepVibe || ritualVibe) ? VIBE_COLORS[deepVibe || ritualVibe] : "#9FB4FF";
@@ -1047,6 +1080,7 @@ export default function EnergyReport() {
           onRitual={v => { setRitualVibe(v); setScreen("ritual"); }}
           skyContext={skyContext}
           latestVibe={latestVibe}
+          hasNatal={!!natalChart}
         />
       )}
       {screen === "ritual" && ritualVibe && (
