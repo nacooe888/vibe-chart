@@ -135,6 +135,139 @@ export default function ProfileScreen({ onClose }) {
     }
   }
 
+  const BirthChartWheel = ({ chart }) => {
+    if (!chart?.positions) return null
+
+    const SIZE = 286
+    const cx = SIZE / 2, cy = SIZE / 2
+    const RO = 124  // zodiac ring outer
+    const RI = 97   // zodiac ring inner
+    const RP = 76   // planet base radius
+    const RC = 40   // center circle
+
+    const ZODIAC_GLYPHS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
+    const ELEMENTS = ['fire','earth','air','water','fire','earth','air','water','fire','earth','air','water']
+    const EL_FILL   = { fire:'rgba(255,140,75,0.14)',  earth:'rgba(127,200,127,0.11)', air:'rgba(127,184,255,0.13)', water:'rgba(196,159,255,0.17)' }
+    const EL_STROKE = { fire:'rgba(255,140,75,0.32)',  earth:'rgba(127,200,127,0.28)', air:'rgba(127,184,255,0.28)', water:'rgba(196,159,255,0.38)' }
+
+    const GLYPH  = { Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂', Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇', TrueNode:'☊', Chiron:'⚷' }
+    const PCOLOR = { Sun:'#FFD47F', Moon:'#E0E0FF', Mercury:'#A8C8FF', Venus:'#FFB0CC', Mars:'#FF9090', Jupiter:'#FFD090', Saturn:'#D0B880', Uranus:'#80FFE8', Neptune:'#A08AFF', Pluto:'#C880C8', TrueNode:'rgba(255,255,255,0.6)', Chiron:'#FF99CC' }
+    const SIGNS_LON = { Aries:0,Taurus:30,Gemini:60,Cancer:90,Leo:120,Virgo:150,Libra:180,Scorpio:210,Sagittarius:240,Capricorn:270,Aquarius:300,Pisces:330 }
+
+    const asc = chart.positions.ASC
+    const mc  = chart.positions.MC
+    const ascLon = asc ? (SIGNS_LON[asc.sign]||0) + asc.degree + (asc.minute||0)/60 : 0
+    const mcLon  = mc  ? (SIGNS_LON[mc.sign]||0)  + mc.degree  + (mc.minute||0)/60  : null
+
+    function pt(deg, r) {
+      const rad = deg * Math.PI / 180
+      return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)]
+    }
+    // In base orientation (pre-rotation), 0° Aries is at SVG 180° (left)
+    // Zodiac increases counterclockwise; group rotates by ascLon° to place ASC at left
+    function lonToAngle(lon) { return (180 - lon + 3600) % 360 }
+
+    function sectorPath(i) {
+      const s = 180 - i * 30, e = s - 30
+      const [x1,y1] = pt(s, RO), [x2,y2] = pt(e, RO)
+      const [xi1,yi1] = pt(s, RI), [xi2,yi2] = pt(e, RI)
+      return `M ${x1} ${y1} A ${RO} ${RO} 0 0 0 ${x2} ${y2} L ${xi2} ${yi2} A ${RI} ${RI} 0 0 1 ${xi1} ${yi1} Z`
+    }
+
+    // Build planet list, sort by longitude, spread close conjunctions to alternate radii
+    const rawPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','TrueNode','Chiron']
+      .filter(n => chart.positions[n])
+      .map(n => { const p = chart.positions[n]; return { name: n, lon: (SIGNS_LON[p.sign]||0) + p.degree + (p.minute||0)/60 } })
+      .sort((a, b) => a.lon - b.lon)
+
+    const planets = rawPlanets.map((p, i) => {
+      const prev = i > 0 ? rawPlanets[i - 1] : null
+      const prevR = i > 0 ? planets[i - 1]?.r : RP
+      let r = RP
+      if (prev) {
+        const diff = Math.min(Math.abs(p.lon - prev.lon), 360 - Math.abs(p.lon - prev.lon))
+        if (diff < 10) r = (prevR === RP || prevR === RP + 14) ? RP - 13 : RP + 14
+      }
+      const angle = lonToAngle(p.lon)
+      const [x, y] = pt(angle, r)
+      return { ...p, angle, r, x, y }
+    })
+
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+          {/* Rotate entire chart so ASC lands at SVG 180° (left / 9 o'clock) */}
+          <g transform={`rotate(${ascLon}, ${cx}, ${cy})`}>
+
+            {/* Zodiac ring */}
+            {Array.from({length:12}, (_,i) => (
+              <path key={i} d={sectorPath(i)} fill={EL_FILL[ELEMENTS[i]]} stroke={EL_STROKE[ELEMENTS[i]]} strokeWidth={0.5} />
+            ))}
+
+            {/* Sign dividers */}
+            {Array.from({length:12}, (_,i) => {
+              const [x1,y1] = pt(180 - i*30, RI), [x2,y2] = pt(180 - i*30, RO)
+              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.12)" strokeWidth={0.5} />
+            })}
+
+            {/* Zodiac glyphs — counter-rotated so they read upright */}
+            {Array.from({length:12}, (_,i) => {
+              const [x,y] = pt(165 - i*30, (RO+RI)/2)
+              return (
+                <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                  fontSize={11} fill="rgba(255,255,255,0.5)"
+                  transform={`rotate(${-ascLon}, ${x}, ${y})`}>
+                  {ZODIAC_GLYPHS[i]}
+                </text>
+              )
+            })}
+
+            {/* Inner ring border */}
+            <circle cx={cx} cy={cy} r={RI} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={0.5} />
+
+            {/* ASC / DSC axis */}
+            {asc && <line x1={cx-RO} y1={cy} x2={cx+RO} y2={cy} stroke="rgba(196,159,255,0.5)" strokeWidth={1} strokeDasharray="3,2" />}
+
+            {/* MC / IC axis */}
+            {mcLon != null && (() => {
+              const a = lonToAngle(mcLon)
+              const [x1,y1] = pt(a, RO), [x2,y2] = pt((a+180)%360, RO)
+              return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(127,184,255,0.35)" strokeWidth={1} strokeDasharray="3,2" />
+            })()}
+
+            {/* ASC label */}
+            {asc && (() => {
+              const [x,y] = pt(178, RI - 10)
+              return <text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={7} fill="rgba(196,159,255,0.85)" transform={`rotate(${-ascLon}, ${x}, ${y})`}>ASC</text>
+            })()}
+
+            {/* MC label */}
+            {mcLon != null && (() => {
+              const [x,y] = pt(lonToAngle(mcLon) - 2, RI - 10)
+              return <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={7} fill="rgba(127,184,255,0.85)" transform={`rotate(${-ascLon}, ${x}, ${y})`}>MC</text>
+            })()}
+
+            {/* Planets */}
+            {planets.map(p => (
+              <text key={p.name} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central"
+                fontSize={12} fill={PCOLOR[p.name]}
+                transform={`rotate(${-ascLon}, ${p.x}, ${p.y})`}>
+                {GLYPH[p.name]}
+              </text>
+            ))}
+
+            {/* Center fill */}
+            <circle cx={cx} cy={cy} r={RC} fill="rgba(5,5,16,0.92)" stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
+          </g>
+
+          {/* Center label (not rotated) */}
+          <text x={cx} y={cy - 6} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.22)" letterSpacing="0.18em">NATAL</text>
+          <text x={cx} y={cy + 8} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.22)" letterSpacing="0.18em">CHART</text>
+        </svg>
+      </div>
+    )
+  }
+
   const PlanetList = ({ chart }) => {
     if (!chart?.positions) return null
     const planets = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'ASC', 'MC']
@@ -343,13 +476,14 @@ export default function ProfileScreen({ onClose }) {
 
             {natalChart && (
               <div style={{
-                background: 'rgba(196,159,255,0.05)',
-                border: '1px solid rgba(196,159,255,0.15)',
+                background: 'rgba(196,159,255,0.04)',
+                border: '1px solid rgba(196,159,255,0.13)',
                 borderRadius: 16,
                 padding: '20px 20px',
                 marginBottom: 20,
               }}>
-                <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(196,159,255,0.7)', marginBottom: 12 }}>natal chart uploaded</div>
+                <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(196,159,255,0.6)', marginBottom: 4 }}>natal chart</div>
+                <BirthChartWheel chart={natalChart} />
                 <PlanetList chart={natalChart} />
               </div>
             )}
