@@ -180,9 +180,11 @@ export default function ProfileScreen({ onClose }) {
       .map(n => { const p = chart.positions[n]; return { name: n, lon: (SIGNS_LON[p.sign]||0) + p.degree + (p.minute||0)/60 } })
       .sort((a, b) => a.lon - b.lon)
 
-    const planets = rawPlanets.map((p, i) => {
-      const prev = i > 0 ? rawPlanets[i - 1] : null
-      const prevR = i > 0 ? planets[i - 1]?.r : RP
+    const planets = []
+    for (let i = 0; i < rawPlanets.length; i++) {
+      const p = rawPlanets[i]
+      const prev = planets[i - 1] || null
+      const prevR = prev ? prev.r : RP
       let r = RP
       if (prev) {
         const diff = Math.min(Math.abs(p.lon - prev.lon), 360 - Math.abs(p.lon - prev.lon))
@@ -190,8 +192,8 @@ export default function ProfileScreen({ onClose }) {
       }
       const angle = lonToAngle(p.lon)
       const [x, y] = pt(angle, r)
-      return { ...p, angle, r, x, y }
-    })
+      planets.push({ ...p, angle, r, x, y })
+    }
 
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
