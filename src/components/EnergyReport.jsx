@@ -254,7 +254,7 @@ Respond with ONLY valid JSON, no markdown:
   ]
 }
 
-Include 3-4 transits from the REAL TRANSIT-TO-NATAL ASPECTS listed above. Order by tightness of orb (tightest first). Only use aspects with orbs under 5°.`;
+IMPORTANT: Only include transits that are explicitly listed in the TRANSIT-TO-NATAL ASPECTS section of the context above. Do NOT calculate or invent aspects yourself. If no TRANSIT-TO-NATAL ASPECTS section is present, return "transits": []. If aspects are listed, include 3-4 with the tightest orbs (under 5° only).`;
 
   const res = await fetch("/api/claude", {
     method:"POST",
@@ -683,7 +683,7 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitL
     generateShortReport(selectedVibe, vibeData, skyContext)
       .then(r => { setReport(r); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [selectedVibe, hasLiveData]);
+  }, [selectedVibe, transitLoading, hasLiveData]);
 
   return (
     <div style={{ minHeight:"100vh", padding:"0 0 80px" }}>
@@ -967,12 +967,16 @@ export default function EnergyReport() {
         setTransitLoading(false);
         return;
       }
+      const controller = new AbortController();
+      const abortTimer = setTimeout(() => controller.abort(), 8000);
       try {
         const res = await fetch('/api/astro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: 'transits' }),
+          signal: controller.signal,
         });
+        clearTimeout(abortTimer);
         if (res.ok) {
           const fresh = await res.json();
           saveChart(user.id, 'transits', fresh);
@@ -983,12 +987,19 @@ export default function EnergyReport() {
           if (cached) setTransitChart(cached);
         }
       } catch (err) {
-        console.error('[transits] fetch error:', err);
+        clearTimeout(abortTimer);
+        console.error('[transits] fetch error:', err.name === 'AbortError' ? 'timed out after 8s' : err);
         if (cached) setTransitChart(cached);
       }
       setTransitLoading(false);
     });
   }, [user?.id]);
+
+  // Failsafe: never block reports for more than 10s
+  useEffect(() => {
+    const t = setTimeout(() => setTransitLoading(false), 10000);
+    return () => clearTimeout(t);
+  }, []);
 
   // Clear all report caches the first time live chart data arrives
   useEffect(() => {
