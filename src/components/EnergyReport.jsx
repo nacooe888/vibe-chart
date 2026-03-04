@@ -69,6 +69,23 @@ function buildSkyContext(natal, transits) {
     Object.entries(grouped).forEach(([sign, pls]) => {
       ctx += `- ${pls.join(' · ')} — ${sign}\n`;
     });
+
+    // Eclipse detection: full/new moon near True Node
+    if (p.Sun && p.Moon && p.TrueNode) {
+      const sunAbs = toAbs(p.Sun.sign, p.Sun.degree, p.Sun.minute);
+      const moonAbs = toAbs(p.Moon.sign, p.Moon.degree, p.Moon.minute);
+      const nodeAbs = toAbs(p.TrueNode.sign, p.TrueNode.degree, p.TrueNode.minute);
+      const sunMoonOrb = orbBetween(sunAbs, moonAbs);
+      const moonNodeOrb = Math.min(orbBetween(moonAbs, nodeAbs), orbBetween(moonAbs, (nodeAbs + 180) % 360));
+      if (moonNodeOrb <= 12) {
+        if (sunMoonOrb <= 12) ctx += `\nECLIPSE — SOLAR ECLIPSE: new moon conjunct True Node (${moonNodeOrb.toFixed(1)}° orb) — portal energy, major endings and beginnings\n`;
+        else if (sunMoonOrb >= 168) ctx += `\nECLIPSE — TOTAL LUNAR ECLIPSE (blood moon): full moon conjunct True Node (${moonNodeOrb.toFixed(1)}° orb) — peak revelation, shadow made visible\n`;
+      } else if (moonNodeOrb <= 18) {
+        if (sunMoonOrb <= 15) ctx += `\nECLIPSE SEASON — partial solar eclipse approaching\n`;
+        else if (sunMoonOrb >= 165) ctx += `\nECLIPSE SEASON — partial lunar eclipse approaching\n`;
+      }
+    }
+
     ctx += '\n';
   }
 
