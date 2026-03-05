@@ -528,8 +528,8 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           </div>
 
           {!saved&&(
-            <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={prompt} rows={2}
-              style={{display:"block",margin:"18px auto 0",width:"min(94vw, 420px)",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"13px 18px",color:"rgba(255,255,255,0.68)",fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.65,caretColor:auraColor,outline:"none",resize:"none"}}/>
+            <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={prompt} rows={3}
+              style={{display:"block",margin:"18px auto 0",width:"min(94vw, 420px)",background:"rgba(255,255,255,0.04)",border:`1px solid ${note ? auraColor + "55" : "rgba(255,255,255,0.14)"}`,borderRadius:14,padding:"14px 18px",color:"rgba(255,255,255,0.78)",fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.65,caretColor:auraColor,outline:"none",resize:"none"}}/>
           )}
 
           {logs.length>0&&(
