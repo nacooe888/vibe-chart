@@ -24,24 +24,55 @@ export default function ChatTab() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [chartsReady, setChartsReady] = useState(false);
   const [natalChart, setNatalChart] = useState(null);
   const [transitChart, setTransitChart] = useState(null);
+  // Refs so sendMessage always reads latest chart data without stale closure
+  const natalRef = useRef(null);
+  const transitRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (!user?.id) return;
-    loadChart(user.id, "natal").then(setNatalChart);
+
+    let natalDone = false;
+    let transitDone = false;
+    function checkReady() {
+      if (natalDone && transitDone) setChartsReady(true);
+    }
+
+    loadChart(user.id, "natal").then(chart => {
+      natalRef.current = chart;
+      setNatalChart(chart);
+      natalDone = true;
+      checkReady();
+    });
+
     // Check localStorage first for transits
+    let transitFromCache = false;
     try {
       const raw = localStorage.getItem(`vibe_transit_${user.id}`);
       if (raw) {
         const parsed = JSON.parse(raw);
-        const age = Date.now() - new Date(parsed.fetchedAt).getTime();
-        if (age < 60 * 60 * 1000) { setTransitChart(parsed); return; }
+        if (Date.now() - new Date(parsed.fetchedAt).getTime() < 60 * 60 * 1000) {
+          transitRef.current = parsed;
+          setTransitChart(parsed);
+          transitDone = true;
+          transitFromCache = true;
+          checkReady();
+        }
       }
     } catch (e) { /* ignore */ }
-    loadChart(user.id, "transits").then(setTransitChart);
+
+    if (!transitFromCache) {
+      loadChart(user.id, "transits").then(chart => {
+        transitRef.current = chart;
+        setTransitChart(chart);
+        transitDone = true;
+        checkReady();
+      });
+    }
   }, [user?.id]);
 
   useEffect(() => {
@@ -58,7 +89,8 @@ export default function ChatTab() {
     setInput("");
     setLoading(true);
 
-    const skyContext = getSkyContext(natalChart, transitChart);
+    // Always read from refs so we get latest chart data even if state hasn't re-rendered
+    const skyContext = getSkyContext(natalRef.current, transitRef.current);
 
     try {
       const res = await claudeFetch({
@@ -98,8 +130,16 @@ export default function ChatTab() {
 
       {/* Header */}
       <div style={{ padding: "48px 24px 16px", textAlign: "center" }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.34em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", marginBottom: 8 }}>
-          {natalChart ? "your chart is loaded" : "no chart · using demo sky"}
+        <div style={{ fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", marginBottom: 8, color: "rgba(255,255,255,0.25)" }}>
+          {!chartsReady
+            ? "loading your chart..."
+            : natalChart && transitChart
+              ? "natal chart · current transits loaded"
+              : natalChart
+                ? "natal chart loaded · no transits"
+                : transitChart
+                  ? "current transits loaded · no natal chart"
+                  : "no chart · using demo sky"}
         </div>
         <h1 style={{ fontWeight: 300, fontSize: 34, margin: 0, letterSpacing: "0.06em" }}>ask your chart</h1>
         <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.1)", margin: "14px auto 0" }} />
@@ -179,7 +219,8 @@ export default function ChatTab() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="ask your chart anything..."
+            placeholder={chartsReady ? "ask your chart anything..." : "loading your chart..."}
+            disabled={!chartsReady}
             rows={1}
             style={{
               flex: 1,
@@ -202,7 +243,7 @@ export default function ChatTab() {
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || !chartsReady}
             style={{
               width: 36,
               height: 36,
