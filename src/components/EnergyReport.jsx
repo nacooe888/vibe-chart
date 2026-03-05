@@ -242,8 +242,8 @@ Respond with ONLY valid JSON, no markdown:
   catch { return { headline:"something is moving", description:"The sky is speaking to exactly where you are right now." }; }
 }
 
-// Generate deep reading: paragraph + transit list
-async function generateDeepReport(vibe, vibeData, skyContext) {
+// Generate deep reading paragraph only (fast, shows immediately)
+async function generateDeepParagraph(vibe, vibeData, skyContext) {
   const prompt = `You are a personal astrologer writing a deeper reading.
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
@@ -253,30 +253,47 @@ Note: "${vibeData.note}"
 
 ${skyContext}
 
-Respond with ONLY valid JSON, no markdown:
-{
-  "paragraph": "2 sentences MAX. One sentence names what's happening in the chart. One sentence lands the personal truth of the ${vibe} transmission. Specific, warm, uncanny. No filler.",
-  "transits": [
-    {
-      "glyph": "planet glyph(s) e.g. ♄♆ or ☽♃",
-      "name": "transit name e.g. Neptune trine natal Sun",
-      "color": "hex color fitting the planetary energy",
-      "line": "one sentence — what this specific transit means given the ${vibe} transmission"
-    }
-  ]
-}
-
-IMPORTANT: Only include transits that are explicitly listed in the TRANSIT-TO-NATAL ASPECTS section of the context above. Do NOT calculate or invent aspects yourself. If no TRANSIT-TO-NATAL ASPECTS section is present, return "transits": []. If aspects are listed, include 3-4 with the tightest orbs (under 5° only).`;
+Write ONLY the paragraph. 2 sentences MAX. One sentence names what's happening in the chart. One sentence lands the personal truth of the ${vibe} transmission. Specific, warm, uncanny. No filler. Return plain text only, no JSON, no quotes.`;
 
   const res = await claudeFetch({
-    model:"claude-sonnet-4-6",
-    max_tokens:1000,
+    model:"claude-haiku-4-5-20251001",
+    max_tokens:150,
     messages:[{role:"user",content:prompt}],
   });
   const data = await res.json();
-  const text = data.content?.[0]?.text||"{}";
+  return data.content?.[0]?.text?.trim() || "The sky is speaking to exactly where you are.";
+}
+
+// Generate transit list for deep reading (loads after paragraph)
+async function generateDeepTransits(vibe, vibeData, skyContext) {
+  const prompt = `You are a personal astrologer.
+
+Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
+Note: "${vibeData.note}"
+
+${skyContext}
+
+Respond with ONLY a valid JSON array, no markdown, no wrapper object:
+[
+  {
+    "glyph": "planet glyph(s) e.g. ♄♆ or ☽♃",
+    "name": "transit name e.g. Neptune trine natal Sun",
+    "color": "hex color fitting the planetary energy",
+    "line": "one sentence — what this specific transit means given the ${vibe} transmission"
+  }
+]
+
+IMPORTANT: Only include transits explicitly listed in the TRANSIT-TO-NATAL ASPECTS section above. Do NOT invent aspects. If none listed, return []. Include 3-4 with the tightest orbs (under 5° only).`;
+
+  const res = await claudeFetch({
+    model:"claude-haiku-4-5-20251001",
+    max_tokens:500,
+    messages:[{role:"user",content:prompt}],
+  });
+  const data = await res.json();
+  const text = data.content?.[0]?.text || "[]";
   try { return JSON.parse(text.replace(/```json|```/g,"").trim()); }
-  catch { return { paragraph:"The sky is speaking to exactly where you are.", transits:[] }; }
+  catch { return []; }
 }
 
 // Generate full reading for a single transit
@@ -556,16 +573,47 @@ const deepReportCache = {};
 
 function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, latestVibe, hasNatal }) {
   const vibeData = getVibeData(vibe, latestVibe);
-  const [data, setData] = useState(deepReportCache[vibe] || null);
-  const [loading, setLoading] = useState(!deepReportCache[vibe]);
+  const cached = deepReportCache[vibe];
+  const [paragraph, setParagraph] = useState(cached?.paragraph || null);
+  const [transits, setTransits] = useState(cached?.transits || null);
+  const [paraLoading, setParaLoading] = useState(!cached?.paragraph);
+  const [transitsLoading, setTransitsLoading] = useState(!cached?.transits);
 
   useEffect(() => {
-    if (deepReportCache[vibe]) { setData(deepReportCache[vibe]); setLoading(false); return; }
-    setData(null);
-    setLoading(true);
-    generateDeepReport(vibe, vibeData, skyContext)
-      .then(d => { deepReportCache[vibe] = d; setData(d); setLoading(false); })
-      .catch(() => { const fallback = { paragraph:"The sky is meeting you exactly where you are.", transits:[] }; deepReportCache[vibe] = fallback; setData(fallback); setLoading(false); });
+    if (deepReportCache[vibe]) {
+      setParagraph(deepReportCache[vibe].paragraph);
+      setTransits(deepReportCache[vibe].transits);
+      setParaLoading(false);
+      setTransitsLoading(false);
+      return;
+    }
+    setParagraph(null);
+    setTransits(null);
+    setParaLoading(true);
+    setTransitsLoading(true);
+
+    // Fire both in parallel — paragraph shows as soon as it arrives
+    generateDeepParagraph(vibe, vibeData, skyContext)
+      .then(p => {
+        setParagraph(p);
+        setParaLoading(false);
+        deepReportCache[vibe] = { ...(deepReportCache[vibe] || {}), paragraph: p };
+      })
+      .catch(() => {
+        setParagraph("The sky is meeting you exactly where you are.");
+        setParaLoading(false);
+      });
+
+    generateDeepTransits(vibe, vibeData, skyContext)
+      .then(t => {
+        setTransits(t);
+        setTransitsLoading(false);
+        deepReportCache[vibe] = { ...(deepReportCache[vibe] || {}), transits: t };
+      })
+      .catch(() => {
+        setTransits([]);
+        setTransitsLoading(false);
+      });
   }, [vibe, hasNatal]);
 
   return (
@@ -577,7 +625,7 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
         <div style={{ fontSize:34, fontWeight:300, color:vibeColor, letterSpacing:"0.04em" }}>{vibe}</div>
       </div>
 
-      {loading ? (
+      {paraLoading ? (
         <div style={{ textAlign:"center", padding:"60px 0" }}>
           <div style={{ fontSize:28, color:vibeColor, animation:"spin-slow 4s linear infinite", display:"inline-block" }}>✦</div>
           <div style={{ fontSize:11, color:"rgba(255,255,255,0.22)", marginTop:14, letterSpacing:"0.22em", fontStyle:"italic" }}>reading your chart</div>
@@ -585,13 +633,17 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
       ) : (
         <div style={{ animation:"fadeUp 0.6s ease" }}>
           <div style={{ fontSize:17, lineHeight:2, color:"rgba(255,255,255,0.88)", fontWeight:300, textAlign:"center", marginBottom:32, padding:"0 4px" }}>
-            {data.paragraph}
+            {paragraph}
           </div>
 
-          {data.transits?.length > 0 && (
+          {transitsLoading ? (
+            <div style={{ textAlign:"center", padding:"16px 0 24px" }}>
+              <div style={{ fontSize:18, color:vibeColor, animation:"spin-slow 4s linear infinite", display:"inline-block", opacity:0.5 }}>✦</div>
+            </div>
+          ) : transits?.length > 0 && (
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
               <div style={{ fontSize:11, letterSpacing:"0.15em", textTransform:"uppercase", color:"rgba(255,255,255,0.6)", textAlign:"center", marginBottom:8, fontWeight:400 }}>active transits · tap to explore</div>
-              {data.transits.map((t, i) => (
+              {transits.map((t, i) => (
                 <div key={i} onClick={() => onTransit(t)}
                   style={{
                     background:`${t.color}0a`,
@@ -615,28 +667,26 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
             </div>
           )}
 
-          {data && !loading && (
-            <div style={{ marginTop:32, animation:"fadeUp 0.5s 0.4s ease both" }}>
-              <div
-                onClick={() => onRitual(vibe)}
-                style={{
-                  background:`${vibeColor}0e`,
-                  border:`1px solid ${vibeColor}33`,
-                  borderRadius:16, padding:"18px 24px",
-                  cursor:"pointer", transition:"all 0.2s",
-                  textAlign:"center",
-                }}
-                onMouseEnter={e=>e.currentTarget.style.background=`${vibeColor}1a`}
-                onMouseLeave={e=>e.currentTarget.style.background=`${vibeColor}0e`}
-              >
-                <div style={{ fontSize:11, color:vibeColor, letterSpacing:"0.28em", textTransform:"uppercase", marginBottom:8, fontWeight:400 }}>ritual</div>
-                <div style={{ fontSize:14, color:"rgba(255,255,255,0.75)", lineHeight:1.7 }}>
-                  call in a practice for {vibe.toLowerCase()} — guided by these transits
-                </div>
-                <div style={{ marginTop:10, fontSize:16, color:vibeColor, opacity:0.6 }}>⟡</div>
+          <div style={{ marginTop:32, animation:"fadeUp 0.5s 0.4s ease both" }}>
+            <div
+              onClick={() => onRitual(vibe)}
+              style={{
+                background:`${vibeColor}0e`,
+                border:`1px solid ${vibeColor}33`,
+                borderRadius:16, padding:"18px 24px",
+                cursor:"pointer", transition:"all 0.2s",
+                textAlign:"center",
+              }}
+              onMouseEnter={e=>e.currentTarget.style.background=`${vibeColor}1a`}
+              onMouseLeave={e=>e.currentTarget.style.background=`${vibeColor}0e`}
+            >
+              <div style={{ fontSize:11, color:vibeColor, letterSpacing:"0.28em", textTransform:"uppercase", marginBottom:8, fontWeight:400 }}>ritual</div>
+              <div style={{ fontSize:14, color:"rgba(255,255,255,0.75)", lineHeight:1.7 }}>
+                call in a practice for {vibe.toLowerCase()} — guided by these transits
               </div>
+              <div style={{ marginTop:10, fontSize:16, color:vibeColor, opacity:0.6 }}>⟡</div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
