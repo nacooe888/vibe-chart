@@ -9,6 +9,7 @@ import RitualTab from './components/RitualTab'
 import CyclesTab from './components/CyclesTab'
 import ProfileScreen from './components/ProfileScreen'
 import { loadProfile } from './lib/profileStorage'
+import { identify, capture } from './lib/analytics'
 
 const TABS = [
   { id: 'map', label: '✦ map' },
@@ -69,6 +70,11 @@ function MainApp() {
   const [activeTab, setActiveTab] = useState('map')
   const [showProfile, setShowProfile] = useState(false)
 
+  function handleTabChange(tabId) {
+    capture('tab_changed', { tab: tabId })
+    setActiveTab(tabId)
+  }
+
   return (
     <div style={{ paddingBottom: 80 }}>
       {/* Profile button - positioned absolutely */}
@@ -98,13 +104,13 @@ function MainApp() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'map' && <VibeCircle showSignOut={false} onSave={() => setActiveTab('report')} />}
+      {activeTab === 'map' && <VibeCircle showSignOut={false} onSave={() => { capture('tab_changed', { tab: 'report' }); setActiveTab('report') }} />}
       {activeTab === 'report' && <EnergyReport />}
       {activeTab === 'ritual' && <RitualTab />}
       {activeTab === 'cycles' && <CyclesTab />}
 
       {/* Tab navigation */}
-      <TabNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabNav activeTab={activeTab} onTabChange={handleTabChange} />
 
       {/* Profile screen overlay */}
       {showProfile && <ProfileScreen onClose={() => setShowProfile(false)} />}
@@ -117,6 +123,12 @@ function AppContent() {
   const [profileLoading, setProfileLoading] = useState(true)
   const [hasProfile, setHasProfile] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    identify(user.id)
+    capture('session_start')
+  }, [user?.id])
 
   useEffect(() => {
     if (!user) {

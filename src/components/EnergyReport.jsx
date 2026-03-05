@@ -4,6 +4,7 @@ import { useVibe } from "../contexts/VibeContext";
 import { loadChart, saveChart } from "../lib/chartStorage";
 import { loadProfile } from "../lib/profileStorage";
 import { supabase } from "../lib/supabase";
+import { capture } from "../lib/analytics";
 
 // Authenticated fetch wrapper — adds Supabase JWT so the server can rate-limit
 async function claudeFetch(body) {
@@ -399,7 +400,7 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
             const meta = PATH_META[p];
             const opt = options[p];
             return (
-              <div key={p} onClick={() => setSelected(p)}
+              <div key={p} onClick={() => { capture('ritual_generated', { vibe, path: p, transit: transit.name }); setSelected(p); }}
                 style={{ background:`${transit.color}0e`, border:`1px solid ${transit.color}2e`, borderRadius:16, padding:"18px 22px", cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"center", gap:14 }}
                 onMouseEnter={e=>e.currentTarget.style.background=`${transit.color}1c`}
                 onMouseLeave={e=>e.currentTarget.style.background=`${transit.color}0e`}
@@ -678,6 +679,10 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitL
   }, [latestVibe]);
 
   useEffect(() => {
+    if (selectedVibe) capture('report_viewed', { vibe: selectedVibe });
+  }, [selectedVibe]);
+
+  useEffect(() => {
     if (!selectedVibe || transitLoading) { setReport(null); return; }
     setReport(null);
     setLoading(true);
@@ -899,7 +904,7 @@ function RitualScreen({ vibe, vibeColor, onBack, skyContext, latestVibe }) {
             const meta = PATH_META[p];
             const opt = options[p];
             return (
-              <div key={p} onClick={() => setSelected(p)}
+              <div key={p} onClick={() => { capture('ritual_generated', { vibe, path: p }); setSelected(p); }}
                 style={{ background:`${vibeColor}0e`, border:`1px solid ${vibeColor}2e`, borderRadius:16, padding:"18px 22px", cursor:"pointer", transition:"all 0.2s", display:"flex", alignItems:"center", gap:14 }}
                 onMouseEnter={e=>e.currentTarget.style.background=`${vibeColor}1c`}
                 onMouseLeave={e=>e.currentTarget.style.background=`${vibeColor}0e`}
@@ -1060,7 +1065,7 @@ export default function EnergyReport() {
 
       {screen === "report" && (
         <ReportScreen
-          onDeepen={v => { setDeepVibe(v); setScreen("deep"); }}
+          onDeepen={v => { capture('deep_reading_opened', { vibe: v }); setDeepVibe(v); setScreen("deep"); }}
           natalChart={natalChart}
           transitChart={transitChart}
           latestVibe={latestVibe}
@@ -1072,7 +1077,7 @@ export default function EnergyReport() {
           vibe={deepVibe}
           vibeColor={VIBE_COLORS[deepVibe]}
           onBack={() => setScreen("report")}
-          onTransit={t => { setActiveTransit(t); setScreen("transit"); }}
+          onTransit={t => { capture('transit_tapped', { transit: t.name }); setActiveTransit(t); setScreen("transit"); }}
           onRitual={v => { setRitualVibe(v); setScreen("ritual"); }}
           skyContext={skyContext}
           latestVibe={latestVibe}

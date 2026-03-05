@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
+import { capture } from "../lib/analytics";
 
 const R = 148;
 const PAD = 62;
@@ -358,6 +359,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       setLogs(prev => [...prev, data]);
       // Record vibe to context for Report tab
       recordVibe(data);
+      capture('vibe_logged', { vibe: data.dominant_vibe, intensity: data.intensity });
       setSaved(true);
       setTimeout(() => {
         setSaved(false);
