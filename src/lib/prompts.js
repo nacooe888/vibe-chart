@@ -5,12 +5,17 @@
 
 // ── Short Report (headline + 1-2 sentence description) ─────────────────────
 export function shortReportPrompt(vibe, vibeData, skyContext) {
+  const noteInstruction = vibeData.note
+    ? vibeData.note.includes("?")
+      ? `The person wrote: "${vibeData.note}" — this is a question. Answer it directly and specifically in the description. Let it shape the headline too.`
+      : `The person wrote: "${vibeData.note}" — let this guide the reading. It matters more than the vibe position alone.`
+    : "";
   return `You are a personal astrologer writing a brief energy report.
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
 Vibes present: ${vibeData.vibesPresent.join(", ")}
 Energy: ${vibeData.verticalBias}, ${vibeData.horizontalBias}
-Note: "${vibeData.note}"
+${noteInstruction}
 
 ${skyContext}
 
@@ -23,12 +28,17 @@ Respond with ONLY valid JSON, no markdown:
 
 // ── Deep Reading: Paragraph (fast, shows immediately) ──────────────────────
 export function deepParagraphPrompt(vibe, vibeData, skyContext) {
+  const noteInstruction = vibeData.note
+    ? vibeData.note.includes("?")
+      ? `The person asked: "${vibeData.note}" — answer this question directly. This is the most important thing to address.`
+      : `The person wrote: "${vibeData.note}" — make this the anchor of the reading. Speak to it specifically.`
+    : "";
   return `You are a personal astrologer writing a deeper reading.
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
 Vibes present: ${vibeData.vibesPresent.join(", ")}
 Energy: ${vibeData.verticalBias}, ${vibeData.horizontalBias}
-Note: "${vibeData.note}"
+${noteInstruction}
 
 ${skyContext}
 

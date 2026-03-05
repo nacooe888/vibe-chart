@@ -39,6 +39,11 @@ function polar(deg, r) {
 
 function inCircle(x, y) { return x * x + y * y <= R * R; }
 
+function clampToCircle(x, y) {
+  const d = Math.sqrt(x * x + y * y);
+  return d <= R ? [x, y] : [x / d * R, y / d * R];
+}
+
 function toSVGCoords(svgEl, clientX, clientY) {
   if (!svgEl || clientX == null || clientY == null) return [0, 0];
   const rect = svgEl.getBoundingClientRect();
@@ -319,13 +324,48 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
     const src=e.touches?.[0]??e.changedTouches?.[0]??e;
     return toSVGCoords(svgRef.current,src.clientX,src.clientY);
   }
-  function handleMouseDown(e) { if(mode!=="draw")return; dragging.current=true; const [x,y]=getXY(e); setDrawPoints([[x,y]]); }
-  function handleMouseMove(e) { if(!dragging.current||mode!=="draw")return; didMove.current=true; const [x,y]=getXY(e); setDrawPoints(prev=>[...prev,[x,y]]); }
+  function handleMouseDown(e) { if(mode!=="draw")return; const [x,y]=getXY(e); if(!inCircle(x,y))return; dragging.current=true; setDrawPoints([[x,y]]); }
+  function handleMouseMove(e) { if(!dragging.current||mode!=="draw")return; didMove.current=true; const [cx,cy]=clampToCircle(...getXY(e)); setDrawPoints(prev=>[...prev,[cx,cy]]); }
   function handleMouseUp() { dragging.current=false; }
   function handleClick(e) { if(mode!=="plot")return; if(didMove.current){didMove.current=false;return;} const [x,y]=getXY(e); if(!inCircle(x,y))return; setPlotPoints(prev=>[...prev,[x,y]]); }
-  function handleTouchStart(e) { e.preventDefault(); if(mode!=="draw")return; dragging.current=true; const [x,y]=getXY(e); setDrawPoints([[x,y]]); }
-  function handleTouchMove(e) { e.preventDefault(); if(!dragging.current)return; const [x,y]=getXY(e); setDrawPoints(prev=>[...prev,[x,y]]); }
-  function handleTouchEnd(e) { e.preventDefault(); dragging.current=false; if(mode==="plot"){const [x,y]=getXY(e); if(inCircle(x,y))setPlotPoints(prev=>[...prev,[x,y]]);} }
+
+  // Native touch handlers so we can call preventDefault conditionally (React handlers are passive)
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    function onTouchStart(e) {
+      if (mode !== "draw") return;
+      const t = e.touches[0];
+      const [x, y] = toSVGCoords(svg, t.clientX, t.clientY);
+      if (!inCircle(x, y)) return; // allow scroll when outside circle
+      e.preventDefault();
+      dragging.current = true;
+      setDrawPoints([[x, y]]);
+    }
+    function onTouchMove(e) {
+      if (!dragging.current) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      const [cx, cy] = clampToCircle(...toSVGCoords(svg, t.clientX, t.clientY));
+      setDrawPoints(prev => [...prev, [cx, cy]]);
+    }
+    function onTouchEnd(e) {
+      dragging.current = false;
+      if (mode === "plot") {
+        const t = e.changedTouches[0];
+        const [x, y] = toSVGCoords(svg, t.clientX, t.clientY);
+        if (inCircle(x, y)) setPlotPoints(prev => [...prev, [x, y]]);
+      }
+    }
+    svg.addEventListener("touchstart", onTouchStart, { passive: false });
+    svg.addEventListener("touchmove", onTouchMove, { passive: false });
+    svg.addEventListener("touchend", onTouchEnd, { passive: false });
+    return () => {
+      svg.removeEventListener("touchstart", onTouchStart);
+      svg.removeEventListener("touchmove", onTouchMove);
+      svg.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [mode]);
   function clearAll() { setPlotPoints([]); setDrawPoints([]); setNote(""); setSaved(false); }
   function undoPoint() { setPlotPoints(prev=>prev.slice(0,-1)); }
 
@@ -414,10 +454,9 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           </div>
 
           <svg ref={svgRef} viewBox={`${-VB} ${-VB} ${VB*2} ${VB*2}`}
-            style={{display:"block",margin:"0 auto",width:"min(96vw, 460px)",height:"min(96vw, 460px)",cursor:mode==="draw"?"crosshair":"pointer",touchAction:"none",userSelect:"none"}}
+            style={{display:"block",margin:"0 auto",width:"min(96vw, 460px)",height:"min(96vw, 460px)",cursor:mode==="draw"?"crosshair":"pointer",userSelect:"none"}}
             onClick={handleClick} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+            onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
             <defs>
               <radialGradient id="voidMask" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="#050510" stopOpacity="1"/>
@@ -488,9 +527,9 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
             {hasData&&<button onClick={handleSave} style={btnStyle(auraColor)}>{saved?"✦ saved":"save"}</button>}
           </div>
 
-          {hasData&&!saved&&(
+          {!saved&&(
             <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={prompt} rows={2}
-              style={{display:"block",margin:"18px auto 0",width:"min(94vw, 420px)",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"13px 18px",color:"rgba(255,255,255,0.68)",fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.65,caretColor:auraColor}}/>
+              style={{display:"block",margin:"18px auto 0",width:"min(94vw, 420px)",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"13px 18px",color:"rgba(255,255,255,0.68)",fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.65,caretColor:auraColor,outline:"none",resize:"none"}}/>
           )}
 
           {logs.length>0&&(
