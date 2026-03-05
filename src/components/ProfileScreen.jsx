@@ -138,46 +138,52 @@ export default function ProfileScreen({ onClose }) {
   const BirthChartWheel = ({ chart }) => {
     if (!chart?.positions) return null
 
-    const SIZE = 286
-    const cx = SIZE / 2, cy = SIZE / 2
-    const RO = 124  // zodiac ring outer
-    const RI = 97   // zodiac ring inner
-    const RP = 76   // planet base radius
-    const RC = 40   // center circle
+    const S = 300
+    const cx = S / 2, cy = S / 2
+    const RO = 132   // zodiac ring outer
+    const RI = 107   // zodiac ring inner / planet boundary
+    const RP = 84    // planet base radius
+    const RC = 32    // center circle
 
-    const ZODIAC_GLYPHS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
+    const SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
     const ELEMENTS = ['fire','earth','air','water','fire','earth','air','water','fire','earth','air','water']
-    const EL_FILL   = { fire:'rgba(255,140,75,0.14)',  earth:'rgba(127,200,127,0.11)', air:'rgba(127,184,255,0.13)', water:'rgba(196,159,255,0.17)' }
-    const EL_STROKE = { fire:'rgba(255,140,75,0.32)',  earth:'rgba(127,200,127,0.28)', air:'rgba(127,184,255,0.28)', water:'rgba(196,159,255,0.38)' }
+    const GLYPHS  = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓']
+    const EL_COLOR = { fire:'#FF9060', earth:'#B0FF7F', air:'#7FB8FF', water:'#C49FFF' }
 
-    const GLYPH  = { Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂', Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇', TrueNode:'☊', Chiron:'⚷' }
-    const PCOLOR = { Sun:'#FFD47F', Moon:'#E0E0FF', Mercury:'#A8C8FF', Venus:'#FFB0CC', Mars:'#FF9090', Jupiter:'#FFD090', Saturn:'#D0B880', Uranus:'#80FFE8', Neptune:'#A08AFF', Pluto:'#C880C8', TrueNode:'rgba(255,255,255,0.6)', Chiron:'#FF99CC' }
-    const SIGNS_LON = { Aries:0,Taurus:30,Gemini:60,Cancer:90,Leo:120,Virgo:150,Libra:180,Scorpio:210,Sagittarius:240,Capricorn:270,Aquarius:300,Pisces:330 }
+    const P_GLYPH = { Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂', Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇', TrueNode:'☊', Chiron:'⚷' }
+    const P_COLOR = { Sun:'#FFD47F', Moon:'#E0E0FF', Mercury:'#A8C8FF', Venus:'#FFB0CC', Mars:'#FF9090', Jupiter:'#FFD090', Saturn:'#D0B880', Uranus:'#80FFE8', Neptune:'#A08AFF', Pluto:'#C880C8', TrueNode:'rgba(255,255,255,0.55)', Chiron:'#FF99CC' }
+    const SIGN_LON = { Aries:0,Taurus:30,Gemini:60,Cancer:90,Leo:120,Virgo:150,Libra:180,Scorpio:210,Sagittarius:240,Capricorn:270,Aquarius:300,Pisces:330 }
 
     const asc = chart.positions.ASC
     const mc  = chart.positions.MC
-    const ascLon = asc ? (SIGNS_LON[asc.sign]||0) + asc.degree + (asc.minute||0)/60 : 0
-    const mcLon  = mc  ? (SIGNS_LON[mc.sign]||0)  + mc.degree  + (mc.minute||0)/60  : null
+    const ascLon = asc ? (SIGN_LON[asc.sign]||0) + asc.degree + (asc.minute||0)/60 : 0
+    const mcLon  = mc  ? (SIGN_LON[mc.sign]||0)  + mc.degree  + (mc.minute||0)/60  : null
 
+    function lonToAngle(lon) { return (180 - lon + 3600) % 360 }
     function pt(deg, r) {
       const rad = deg * Math.PI / 180
       return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)]
     }
-    // In base orientation (pre-rotation), 0° Aries is at SVG 180° (left)
-    // Zodiac increases counterclockwise; group rotates by ascLon° to place ASC at left
-    function lonToAngle(lon) { return (180 - lon + 3600) % 360 }
 
-    function sectorPath(i) {
-      const s = 180 - i * 30, e = s - 30
-      const [x1,y1] = pt(s, RO), [x2,y2] = pt(e, RO)
-      const [xi1,yi1] = pt(s, RI), [xi2,yi2] = pt(e, RI)
-      return `M ${x1} ${y1} A ${RO} ${RO} 0 0 0 ${x2} ${y2} L ${xi2} ${yi2} A ${RI} ${RI} 0 0 1 ${xi1} ${yi1} Z`
+    // Full pie sector from center to radius r
+    function fullSector(i, r) {
+      const s = lonToAngle(i * 30), e = lonToAngle((i + 1) * 30)
+      const [x1,y1] = pt(s, r), [x2,y2] = pt(e, r)
+      return `M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,0 ${x2},${y2} Z`
     }
 
-    // Build planet list, sort by longitude, spread close conjunctions to alternate radii
+    // Ring sector (RI to RO)
+    function ringSector(i) {
+      const s = lonToAngle(i * 30), e = lonToAngle((i + 1) * 30)
+      const [ox1,oy1] = pt(s, RO), [ox2,oy2] = pt(e, RO)
+      const [ix1,iy1] = pt(s, RI), [ix2,iy2] = pt(e, RI)
+      return `M${ox1},${oy1} A${RO},${RO} 0 0,0 ${ox2},${oy2} L${ix2},${iy2} A${RI},${RI} 0 0,1 ${ix1},${iy1} Z`
+    }
+
+    // Planet spread — alternate radii for planets within 10°
     const rawPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','TrueNode','Chiron']
       .filter(n => chart.positions[n])
-      .map(n => { const p = chart.positions[n]; return { name: n, lon: (SIGNS_LON[p.sign]||0) + p.degree + (p.minute||0)/60 } })
+      .map(n => { const p = chart.positions[n]; return { name: n, lon: (SIGN_LON[p.sign]||0) + p.degree + (p.minute||0)/60 } })
       .sort((a, b) => a.lon - b.lon)
 
     const planets = []
@@ -188,7 +194,7 @@ export default function ProfileScreen({ onClose }) {
       let r = RP
       if (prev) {
         const diff = Math.min(Math.abs(p.lon - prev.lon), 360 - Math.abs(p.lon - prev.lon))
-        if (diff < 10) r = (prevR === RP || prevR === RP + 14) ? RP - 13 : RP + 14
+        if (diff < 10) r = (prevR === RP || prevR === RP + 12) ? RP - 12 : RP + 12
       }
       const angle = lonToAngle(p.lon)
       const [x, y] = pt(angle, r)
@@ -196,75 +202,137 @@ export default function ProfileScreen({ onClose }) {
     }
 
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
-        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-          {/* Rotate entire chart so ASC lands at SVG 180° (left / 9 o'clock) */}
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 8px' }}>
+        <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`}>
+          <defs>
+            <radialGradient id="natalVoidMask" cx="50%" cy="50%" r="50%">
+              <stop offset="0%"   stopColor="#050510" stopOpacity="1"/>
+              <stop offset="52%"  stopColor="#050510" stopOpacity="1"/>
+              <stop offset="78%"  stopColor="#050510" stopOpacity="0.82"/>
+              <stop offset="96%"  stopColor="#050510" stopOpacity="0.3"/>
+              <stop offset="100%" stopColor="#050510" stopOpacity="0"/>
+            </radialGradient>
+            <radialGradient id="natalCenter" cx="50%" cy="50%" r="50%">
+              <stop offset="0%"   stopColor="#0a0120"/>
+              <stop offset="100%" stopColor="#050510"/>
+            </radialGradient>
+            <filter id="natalSectorBlur" x="-25%" y="-25%" width="150%" height="150%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="8"/>
+            </filter>
+            <filter id="natalPlanetGlow" x="-70%" y="-70%" width="240%" height="240%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          {/* Dark background */}
+          <circle cx={cx} cy={cy} r={RO + 6} fill="#050510"/>
+
+          {/* Rotate chart so ASC sits at 9 o'clock */}
           <g transform={`rotate(${ascLon}, ${cx}, ${cy})`}>
 
-            {/* Zodiac ring */}
-            {Array.from({length:12}, (_,i) => (
-              <path key={i} d={sectorPath(i)} fill={EL_FILL[ELEMENTS[i]]} stroke={EL_STROKE[ELEMENTS[i]]} strokeWidth={0.5} />
-            ))}
-
-            {/* Sign dividers */}
-            {Array.from({length:12}, (_,i) => {
-              const [x1,y1] = pt(180 - i*30, RI), [x2,y2] = pt(180 - i*30, RO)
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.12)" strokeWidth={0.5} />
+            {/* Element-colored sectors — solid + blurred glow layer (like VibeCircle) */}
+            {SIGNS.map((sign, i) => {
+              const c = EL_COLOR[ELEMENTS[i]]
+              return (
+                <g key={sign}>
+                  <path d={fullSector(i, RI)} fill={c} fillOpacity={0.30}/>
+                  <path d={fullSector(i, RI)} fill={c} fillOpacity={0.14} filter="url(#natalSectorBlur)"/>
+                </g>
+              )
             })}
 
-            {/* Zodiac glyphs — counter-rotated so they read upright */}
-            {Array.from({length:12}, (_,i) => {
-              const [x,y] = pt(165 - i*30, (RO+RI)/2)
+            {/* Void gradient mask — fades sectors toward center */}
+            <circle cx={cx} cy={cy} r={RI} fill="url(#natalVoidMask)"/>
+
+            {/* Concentric dashed rings (like VibeCircle) */}
+            {[0.35, 0.65].map(f => (
+              <circle key={f} cx={cx} cy={cy} r={RI * f}
+                fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} strokeDasharray="2,8"/>
+            ))}
+
+            {/* Radial spoke lines center → RI, element-colored */}
+            {SIGNS.map((_, i) => {
+              const c = EL_COLOR[ELEMENTS[i]]
+              const [x, y] = pt(lonToAngle(i * 30), RI)
+              return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke={c} strokeWidth={0.35} strokeOpacity={0.2}/>
+            })}
+
+            {/* Inner ring border */}
+            <circle cx={cx} cy={cy} r={RI} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={0.5}/>
+
+            {/* Zodiac band (RI → RO) — element-colored ring sectors */}
+            {SIGNS.map((sign, i) => (
+              <path key={sign} d={ringSector(i)} fill={EL_COLOR[ELEMENTS[i]]} fillOpacity={0.14}/>
+            ))}
+
+            {/* Sign dividers in the band */}
+            {SIGNS.map((_, i) => {
+              const angle = lonToAngle(i * 30)
+              const [x1,y1] = pt(angle, RI), [x2,y2] = pt(angle, RO)
+              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.18)" strokeWidth={0.5}/>
+            })}
+
+            {/* Outer ring border */}
+            <circle cx={cx} cy={cy} r={RO} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={0.5}/>
+
+            {/* Zodiac glyphs — counter-rotated to stay upright */}
+            {SIGNS.map((sign, i) => {
+              const c = EL_COLOR[ELEMENTS[i]]
+              const [x, y] = pt(lonToAngle(i * 30 + 15), (RO + RI) / 2)
               return (
-                <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="central"
-                  fontSize={11} fill="rgba(255,255,255,0.5)"
+                <text key={sign} x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                  fontSize={12} fill={c} fillOpacity={0.9}
                   transform={`rotate(${-ascLon}, ${x}, ${y})`}>
-                  {ZODIAC_GLYPHS[i]}
+                  {GLYPHS[i]}
                 </text>
               )
             })}
 
-            {/* Inner ring border */}
-            <circle cx={cx} cy={cy} r={RI} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={0.5} />
-
             {/* ASC / DSC axis */}
-            {asc && <line x1={cx-RO} y1={cy} x2={cx+RO} y2={cy} stroke="rgba(196,159,255,0.5)" strokeWidth={1} strokeDasharray="3,2" />}
+            {asc && <line x1={cx-RO} y1={cy} x2={cx+RO} y2={cy} stroke="rgba(196,159,255,0.55)" strokeWidth={1} strokeDasharray="3,2"/>}
 
             {/* MC / IC axis */}
             {mcLon != null && (() => {
               const a = lonToAngle(mcLon)
-              const [x1,y1] = pt(a, RO), [x2,y2] = pt((a+180)%360, RO)
-              return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(127,184,255,0.35)" strokeWidth={1} strokeDasharray="3,2" />
+              const [x1,y1] = pt(a, RO), [x2,y2] = pt((a + 180) % 360, RO)
+              return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(127,184,255,0.38)" strokeWidth={1} strokeDasharray="3,2"/>
             })()}
 
             {/* ASC label */}
             {asc && (() => {
-              const [x,y] = pt(178, RI - 10)
-              return <text x={x} y={y} textAnchor="end" dominantBaseline="central" fontSize={7} fill="rgba(196,159,255,0.85)" transform={`rotate(${-ascLon}, ${x}, ${y})`}>ASC</text>
+              const [x, y] = pt(180, RI - 17)
+              return <text x={x} y={y} textAnchor="end" dominantBaseline="central"
+                fontSize={7.5} fill="rgba(196,159,255,0.9)" letterSpacing="0.1em"
+                transform={`rotate(${-ascLon}, ${x}, ${y})`}>ASC</text>
             })()}
 
             {/* MC label */}
             {mcLon != null && (() => {
-              const [x,y] = pt(lonToAngle(mcLon) - 2, RI - 10)
-              return <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={7} fill="rgba(127,184,255,0.85)" transform={`rotate(${-ascLon}, ${x}, ${y})`}>MC</text>
+              const [x, y] = pt(lonToAngle(mcLon) - 1, RI - 17)
+              return <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                fontSize={7.5} fill="rgba(127,184,255,0.9)" letterSpacing="0.1em"
+                transform={`rotate(${-ascLon}, ${x}, ${y})`}>MC</text>
             })()}
 
-            {/* Planets */}
+            {/* Planets with glow */}
             {planets.map(p => (
-              <text key={p.name} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central"
-                fontSize={12} fill={PCOLOR[p.name]}
+              <text key={p.name} x={p.x} y={p.y}
+                textAnchor="middle" dominantBaseline="central"
+                fontSize={14} fill={P_COLOR[p.name]}
+                filter="url(#natalPlanetGlow)"
                 transform={`rotate(${-ascLon}, ${p.x}, ${p.y})`}>
-                {GLYPH[p.name]}
+                {P_GLYPH[p.name]}
               </text>
             ))}
 
-            {/* Center fill */}
-            <circle cx={cx} cy={cy} r={RC} fill="rgba(5,5,16,0.92)" stroke="rgba(255,255,255,0.05)" strokeWidth={0.5} />
+            {/* Center void */}
+            <circle cx={cx} cy={cy} r={RC} fill="url(#natalCenter)" stroke="rgba(255,255,255,0.07)" strokeWidth={0.5}/>
           </g>
 
-          {/* Center label (not rotated) */}
-          <text x={cx} y={cy - 6} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.22)" letterSpacing="0.18em">NATAL</text>
-          <text x={cx} y={cy + 8} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.22)" letterSpacing="0.18em">CHART</text>
+          {/* Center label — outside rotation so it stays upright */}
+          <text x={cx} y={cy - 7} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.22)" letterSpacing="0.2em">NATAL</text>
+          <text x={cx} y={cy + 8} textAnchor="middle" fontSize={8} fill="rgba(255,255,255,0.22)" letterSpacing="0.2em">CHART</text>
         </svg>
       </div>
     )
