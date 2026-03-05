@@ -148,10 +148,39 @@ export default function ChatTab() {
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
         {messages.length === 0 && (
-          <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(255,255,255,0.22)", fontStyle: "italic", fontSize: 15, lineHeight: 1.8 }}>
-            ask anything — what's active in your chart,<br />
-            what a transit means, what's coming,<br />
-            what you should know right now
+          <div style={{ padding: "24px 0 8px" }}>
+            <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontStyle: "italic", fontSize: 14, lineHeight: 1.8, marginBottom: 24 }}>
+              ask anything — what's active in your chart,<br />
+              what a transit means, what's coming
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {[
+                "What should I look out for today?",
+                "How can I work with this energy in a positive way?",
+                "What transits are most active for me right now?",
+                "What does my chart say about what I'm going through?",
+              ].map(q => (
+                <button key={q} onClick={() => { setInput(q); setTimeout(() => inputRef.current?.focus(), 0); }}
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 14,
+                    padding: "13px 18px",
+                    color: "rgba(255,255,255,0.55)",
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 15,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    lineHeight: 1.5,
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(196,159,255,0.08)"; e.currentTarget.style.borderColor = "rgba(196,159,255,0.3)"; e.currentTarget.style.color = "rgba(255,255,255,0.82)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
