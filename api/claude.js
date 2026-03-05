@@ -49,23 +49,30 @@ export default async function handler(req, res) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (supabaseUrl && serviceRoleKey) {
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
+    try {
+      const admin = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
 
-    const { data: { user }, error: authError } = await admin.auth.getUser(token)
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid or expired session' })
-    }
+      const { data: { user }, error: authError } = await admin.auth.getUser(token)
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Invalid or expired session' })
+      }
 
-    const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD UTC
-    const { data: count, error: rpcError } = await admin.rpc('increment_api_usage', {
-      p_user_id: user.id,
-      p_date: today,
-    })
+      const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD UTC
+      const { data: count, error: rpcError } = await admin.rpc('increment_api_usage', {
+        p_user_id: user.id,
+        p_date: today,
+      })
 
-    if (!rpcError && count > DAILY_LIMIT) {
-      return res.status(429).json({ error: 'daily reading limit reached — come back tomorrow' })
+      if (rpcError) console.error('[rate-limit] rpc error:', rpcError.message)
+
+      if (!rpcError && count > DAILY_LIMIT) {
+        return res.status(429).json({ error: 'daily reading limit reached — come back tomorrow' })
+      }
+    } catch (rateLimitErr) {
+      console.error('[rate-limit] unexpected error:', rateLimitErr.message)
+      // Degrade gracefully — let the request through rather than blocking the user
     }
   }
   // ── End rate limiting ──────────────────────────────────────────────────────
