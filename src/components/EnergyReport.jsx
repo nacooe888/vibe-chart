@@ -46,7 +46,7 @@ const VIBE_DEFAULTS = {
 };
 
 // Convert chart JSON to SKY_CONTEXT string for the AI reading prompts
-function buildSkyContext(natal, transits) {
+export function buildSkyContext(natal, transits) {
   if (!natal && !transits) return null;
 
   const SIGNS_DEG = { Aries:0,Taurus:30,Gemini:60,Cancer:90,Leo:120,Virgo:150,
@@ -148,7 +148,7 @@ function buildSkyContext(natal, transits) {
   return ctx;
 }
 
-const HARDCODED_SKY_CONTEXT = `Current sky (sidereal Fagan-Allen · San Francisco · Feb 25 2026 · 7:36 AM):
+export const HARDCODED_SKY_CONTEXT = `Current sky (sidereal Fagan-Allen · San Francisco · Feb 25 2026 · 7:36 AM):
 - Sun 11°56' Aquarius · Mercury 27°25' Aquarius · Venus 23°55' Aquarius · Mars 0°59' Aquarius — four planets in Aquarius
 - Saturn 6°13' Pisces · Neptune 5°49' Pisces — both in Pisces
 - Moon 26°52' Taurus · Jupiter 20°16' Gemini · Uranus 2°33' Taurus · Pluto 9°20' Capricorn · Chiron 28°47' Pisces
@@ -191,7 +191,7 @@ KEY INSIGHTS:
 - This is an extraordinarily active chart — multiple near-exact aspects across several planets`;
 
 // Build context from uploaded charts, falling back to hardcoded
-function getSkyContext(natalChart, transitChart) {
+export function getSkyContext(natalChart, transitChart) {
   if (natalChart || transitChart) {
     const dynamic = buildSkyContext(natalChart, transitChart);
     if (dynamic) return dynamic;

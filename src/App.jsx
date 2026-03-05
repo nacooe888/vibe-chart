@@ -8,6 +8,7 @@ import EnergyReport from './components/EnergyReport'
 import RitualTab from './components/RitualTab'
 import CyclesTab from './components/CyclesTab'
 import ProfileScreen from './components/ProfileScreen'
+import ChatTab from './components/ChatTab'
 import { loadProfile } from './lib/profileStorage'
 import { identify, capture } from './lib/analytics'
 
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'report', label: '◎ report' },
   { id: 'ritual', label: '⟡ ritual' },
   { id: 'cycles', label: '◈ cycles' },
+  { id: 'chat', label: '◇ chat' },
 ]
 
 function TabNav({ activeTab, onTabChange }) {
@@ -108,6 +110,7 @@ function MainApp() {
       {activeTab === 'report' && <EnergyReport />}
       {activeTab === 'ritual' && <RitualTab />}
       {activeTab === 'cycles' && <CyclesTab />}
+      {activeTab === 'chat' && <ChatTab />}
 
       {/* Tab navigation */}
       <TabNav activeTab={activeTab} onTabChange={handleTabChange} />

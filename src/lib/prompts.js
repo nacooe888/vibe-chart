@@ -125,6 +125,15 @@ Generate four ritual paths specifically for working with ${transit.name}. Respon
 Make each practice SPECIFIC to ${transit.name} — not generic vibe work. Reference what this specific planetary energy is doing.`;
 }
 
+// ── Chat System Prompt ────────────────────────────────────────────────────────
+export function chatSystemPrompt(skyContext) {
+  return `You are a personal astrologer having a direct conversation with someone about their chart and life.
+
+${skyContext}
+
+Answer their questions honestly, specifically, and warmly. Reference actual placements and transits from the chart above when relevant — don't be generic. Keep responses conversational: 2-4 sentences unless a detailed answer genuinely needs more. If you don't know something from the chart data, say so rather than inventing it. No toxic positivity. No filler.`;
+}
+
 // ── Vibe Ritual Options (3 paths by default, 4 for volatile vibes) ──────────
 export function ritualPrompt(vibe, vibeData, skyContext) {
   return `You are a ritual guide writing short practices based on current vibe and active transits.
