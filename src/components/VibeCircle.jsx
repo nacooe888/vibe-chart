@@ -404,8 +404,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       setTimeout(() => {
         setSaved(false);
         clearAll();
-        // Only redirect to report if there's chart data to report on
-        if (q) onSave?.();
+        onSave?.();
       }, 2400);
     }
   }
