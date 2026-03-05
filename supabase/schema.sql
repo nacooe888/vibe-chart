@@ -143,3 +143,46 @@ create policy "Users can update own profile"
 create policy "Users can delete own profile"
   on public.user_profiles for delete
   using (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────
+-- API Usage Table (rate limiting — 50 calls/day)
+-- ─────────────────────────────────────────────
+
+create table if not exists public.api_usage (
+  user_id    uuid references auth.users(id) on delete cascade not null,
+  date       date not null,
+  call_count integer not null default 0,
+  primary key (user_id, date)
+);
+
+create index if not exists api_usage_user_id_idx on public.api_usage(user_id);
+
+-- Enable RLS — service role bypasses it for writes; users can read their own row
+alter table public.api_usage enable row level security;
+
+create policy "Users can view own usage"
+  on public.api_usage for select
+  using (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────
+-- Atomic increment — called server-side only
+-- Inserts (user_id, date, 1) or increments existing count; returns new total.
+-- ─────────────────────────────────────────────
+
+create or replace function public.increment_api_usage(p_user_id uuid, p_date date)
+returns integer
+language plpgsql
+security definer
+as $$
+declare
+  v_count integer;
+begin
+  insert into public.api_usage (user_id, date, call_count)
+  values (p_user_id, p_date, 1)
+  on conflict (user_id, date) do update
+    set call_count = api_usage.call_count + 1
+  returning call_count into v_count;
+
+  return v_count;
+end;
+$$;

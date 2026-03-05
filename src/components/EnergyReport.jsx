@@ -3,6 +3,20 @@ import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
 import { loadChart, saveChart } from "../lib/chartStorage";
 import { loadProfile } from "../lib/profileStorage";
+import { supabase } from "../lib/supabase";
+
+// Authenticated fetch wrapper — adds Supabase JWT so the server can rate-limit
+async function claudeFetch(body) {
+  const { data: { session } } = await supabase.auth.getSession();
+  return fetch("/api/claude", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
 
 const ALL_VIBES = ["Expansive","Inspired","Energized","Sharp","Lit","Directive","Contracted","Uninspired","Depleted","Foggy","Volatile","Receptive"];
 
@@ -216,14 +230,10 @@ Respond with ONLY valid JSON, no markdown:
   "description": "1-2 sentences only. Connects the ${vibe} transmission to the most relevant planetary dynamic active right now. Specific, warm, uncanny. No generic astrology. Make them feel seen."
 }`;
 
-  const res = await fetch("/api/claude", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      model:"claude-haiku-4-5-20251001",
-      max_tokens:400,
-      messages:[{role:"user",content:prompt}],
-    }),
+  const res = await claudeFetch({
+    model:"claude-haiku-4-5-20251001",
+    max_tokens:400,
+    messages:[{role:"user",content:prompt}],
   });
   const data = await res.json();
   const text = data.content?.[0]?.text||"{}";
@@ -257,14 +267,10 @@ Respond with ONLY valid JSON, no markdown:
 
 IMPORTANT: Only include transits that are explicitly listed in the TRANSIT-TO-NATAL ASPECTS section of the context above. Do NOT calculate or invent aspects yourself. If no TRANSIT-TO-NATAL ASPECTS section is present, return "transits": []. If aspects are listed, include 3-4 with the tightest orbs (under 5° only).`;
 
-  const res = await fetch("/api/claude", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      model:"claude-sonnet-4-6",
-      max_tokens:1000,
-      messages:[{role:"user",content:prompt}],
-    }),
+  const res = await claudeFetch({
+    model:"claude-sonnet-4-6",
+    max_tokens:1000,
+    messages:[{role:"user",content:prompt}],
   });
   const data = await res.json();
   const text = data.content?.[0]?.text||"{}";
@@ -292,14 +298,10 @@ Respond with ONLY valid JSON, no markdown:
   "para2": "2 sentences. Why the ${vibe} transmission makes sense in this context + what this transit is opening or asking."
 }`;
 
-  const res = await fetch("/api/claude", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      model:"claude-sonnet-4-6",
-      max_tokens:1200,
-      messages:[{role:"user",content:prompt}],
-    }),
+  const res = await claudeFetch({
+    model:"claude-sonnet-4-6",
+    max_tokens:1200,
+    messages:[{role:"user",content:prompt}],
   });
   const data = await res.json();
   return data.content?.[0]?.text || "";
@@ -341,10 +343,7 @@ Generate four ritual paths specifically for working with ${transit.name}. Respon
 
 Make each practice SPECIFIC to ${transit.name} — not generic vibe work. Reference what this specific planetary energy is doing.`;
 
-  const res = await fetch("/api/claude", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
-  });
+  const res = await claudeFetch({ model:"claude-sonnet-4-6", max_tokens:1200, messages:[{role:"user",content:prompt}] });
   const data = await res.json();
   const text = data.content?.[0]?.text || "{}";
   try { return JSON.parse(text.replace(/```json|```/g,"").trim()); }
@@ -837,10 +836,7 @@ Generate three ritual paths. Respond with ONLY valid JSON:
 
 Include ALL four paths (honor, release, shift, channel). Each step specific, somatic, doable right now. Informed by the active transits. Not vague. Not toxic positivity.`;
 
-  const res = await fetch("/api/claude", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1200, messages:[{role:"user",content:prompt}] }),
-  });
+  const res = await claudeFetch({ model:"claude-sonnet-4-6", max_tokens:1200, messages:[{role:"user",content:prompt}] });
   const data = await res.json();
   const text = data.content?.[0]?.text || "{}";
   try { return JSON.parse(text.replace(/```json|```/g,"").trim()); }
@@ -970,7 +966,7 @@ export default function EnergyReport() {
         if (profile?.birth_date && profile?.birth_location) {
           const res = await fetch('/api/astro', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-PostHog-Distinct-Id': user.id },
             body: JSON.stringify({
               type: 'natal',
               name: profile.name || undefined,
@@ -1002,7 +998,7 @@ export default function EnergyReport() {
       try {
         const res = await fetch('/api/astro', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-PostHog-Distinct-Id': user.id },
           body: JSON.stringify({ type: 'transits' }),
           signal: controller.signal,
         });
