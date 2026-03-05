@@ -298,6 +298,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
 
   const activePoints = mode==="plot" ? plotPoints : drawPoints;
   const hasData = activePoints.length > 1;
+  const canSave = hasData || note.trim().length > 0;
   const auraColor = getAuraColor(activePoints);
   const shapePath = mode==="plot" ? polygonPath(plotPoints) : smoothPath(drawPoints);
 
@@ -370,23 +371,23 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
   function undoPoint() { setPlotPoints(prev=>prev.slice(0,-1)); }
 
   async function handleSave() {
+    if (!canSave) return;
     const q = quantifyPoints(activePoints);
-    if (!q) return;
 
     const entry = {
       user_id: user.id,
       mode,
       note: note || null,
-      dominant_angle: q.dominant_angle,
-      dominant_vibe: q.dominant_vibe,
-      intensity: q.intensity,
-      spread: q.spread,
-      centroid: q.centroid,
-      vibes_present: q.vibes_present,
-      point_count: q.point_count,
-      vertical_bias: q.vertical_bias,
-      horizontal_bias: q.horizontal_bias,
-      points: q.points,
+      dominant_angle: q?.dominant_angle ?? null,
+      dominant_vibe: q?.dominant_vibe ?? null,
+      intensity: q?.intensity ?? null,
+      spread: q?.spread ?? null,
+      centroid: q?.centroid ?? null,
+      vibes_present: q?.vibes_present ?? [],
+      point_count: q?.point_count ?? 0,
+      vertical_bias: q?.vertical_bias ?? null,
+      horizontal_bias: q?.horizontal_bias ?? null,
+      points: q?.points ?? [],
     };
 
     const { data, error } = await supabase
@@ -397,15 +398,14 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
 
     if (!error && data) {
       setLogs(prev => [...prev, data]);
-      // Record vibe to context for Report tab
       recordVibe(data);
       capture('vibe_logged', { vibe: data.dominant_vibe, intensity: data.intensity });
       setSaved(true);
       setTimeout(() => {
         setSaved(false);
         clearAll();
-        // Navigate to report tab after save
-        onSave?.();
+        // Only redirect to report if there's chart data to report on
+        if (q) onSave?.();
       }, 2400);
     }
   }
@@ -529,7 +529,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           <div style={{display:"flex",justifyContent:"center",gap:10,marginTop:20}}>
             {mode==="plot"&&plotPoints.length>0&&<button onClick={undoPoint} style={btnStyle()}>undo</button>}
             <button onClick={clearAll} style={btnStyle()}>clear</button>
-            <button onClick={handleSave} disabled={saved||!hasData} style={{...btnStyle(hasData ? auraColor : null), opacity: hasData ? 1 : 0.35, cursor: hasData ? "pointer" : "default"}}>{saved?"✦ saved":"save"}</button>
+            <button onClick={handleSave} disabled={saved||!canSave} style={{...btnStyle(canSave ? auraColor : null), opacity: canSave ? 1 : 0.35, cursor: canSave ? "pointer" : "default"}}>{saved?"✦ saved":"save"}</button>
           </div>
 
           {logs.length>0&&(
