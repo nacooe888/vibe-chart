@@ -201,18 +201,20 @@ function getSkyContext(natalChart, transitChart) {
 
 // Get vibe data - use real vibe from context if available, otherwise use defaults
 function getVibeData(vibe, latestVibe) {
-  // If we have a recent vibe transmission matching this vibe, use its real data
+  // Note always travels with the reading regardless of which vibe is selected
+  const note = latestVibe?.note || "";
   if (latestVibe && latestVibe.dominant_vibe === vibe) {
     return {
       intensity: latestVibe.intensity,
       vibesPresent: latestVibe.vibes_present || [vibe],
       verticalBias: latestVibe.vertical_bias || "balanced",
       horizontalBias: latestVibe.horizontal_bias || "balanced",
-      note: latestVibe.note || VIBE_DEFAULTS[vibe]?.note || "",
+      note,
     };
   }
-  // Otherwise use defaults
-  return VIBE_DEFAULTS[vibe] || VIBE_DEFAULTS.Expansive;
+  // Use chart defaults for position data, but always carry the note through
+  const defaults = VIBE_DEFAULTS[vibe] || VIBE_DEFAULTS.Expansive;
+  return { ...defaults, note: note || defaults.note || "" };
 }
 
 // Generate short report: headline + 1-2 sentence description
