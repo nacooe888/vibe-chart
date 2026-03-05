@@ -449,11 +449,6 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
             </div>
           </div>
 
-          {!saved&&(
-            <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={prompt} rows={3}
-              style={{display:"block",margin:"0 auto 16px",width:"min(94vw, 420px)",background:"rgba(255,255,255,0.04)",border:`1px solid ${note ? auraColor + "55" : "rgba(255,255,255,0.14)"}`,borderRadius:14,padding:"14px 18px",color:"rgba(255,255,255,0.78)",fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.65,caretColor:auraColor,outline:"none",resize:"none"}}/>
-          )}
-
           <div style={{textAlign:"center",fontSize:12,color:"rgba(255,255,255,0.22)",letterSpacing:"0.1em",fontStyle:"italic",marginBottom:10,minHeight:18}}>
             {mode==="plot" ? plotPoints.length===0?"tap inside the circle to place points":`${plotPoints.length} point${plotPoints.length===1?"":"s"} placed · tap more or save` : "drag inside the circle to draw your vibe"}
           </div>
@@ -526,10 +521,15 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
             <text x={0} y={0} textAnchor="middle" dominantBaseline="middle" style={{fontFamily:"'Cormorant Garamond',serif",fontSize:7,fill:"rgba(255,255,255,0.35)",letterSpacing:"0.28em",pointerEvents:"none"}}>VOID</text>
           </svg>
 
+          {!saved&&(
+            <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={prompt} rows={3}
+              style={{display:"block",margin:"18px auto 0",width:"min(94vw, 420px)",background:"rgba(255,255,255,0.04)",border:`1px solid ${note ? auraColor + "55" : "rgba(255,255,255,0.14)"}`,borderRadius:14,padding:"14px 18px",color:"rgba(255,255,255,0.78)",fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.65,caretColor:auraColor,outline:"none",resize:"none"}}/>
+          )}
+
           <div style={{display:"flex",justifyContent:"center",gap:10,marginTop:20}}>
             {mode==="plot"&&plotPoints.length>0&&<button onClick={undoPoint} style={btnStyle()}>undo</button>}
             <button onClick={clearAll} style={btnStyle()}>clear</button>
-            {hasData&&<button onClick={handleSave} style={btnStyle(auraColor)}>{saved?"✦ saved":"save"}</button>}
+            <button onClick={handleSave} disabled={saved} style={btnStyle(hasData ? auraColor : null)}>{saved?"✦ saved":"save"}</button>
           </div>
 
           {logs.length>0&&(
