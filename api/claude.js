@@ -10,7 +10,10 @@ import { createClient } from '@supabase/supabase-js'
 
 const DAILY_LIMIT = 50
 
+const noop = { captureImmediate: async () => {}, captureException: () => {}, shutdown: async () => {} }
+
 function getPostHog() {
+  if (!process.env.POSTHOG_API_KEY) return noop
   return new PostHog(process.env.POSTHOG_API_KEY, {
     host: process.env.POSTHOG_HOST || 'https://us.i.posthog.com',
     flushAt: 1,
