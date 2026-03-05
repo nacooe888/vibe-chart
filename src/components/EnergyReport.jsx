@@ -990,14 +990,36 @@ export default function EnergyReport() {
         console.warn('[natal] auto-generate failed:', e);
       }
     });
-    loadChart(user.id, 'transits').then(async cached => {
-      const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-      const isStale = !cached?.fetchedAt || Date.now() - new Date(cached.fetchedAt).getTime() > SIX_HOURS_MS;
+    (async () => {
+      const ONE_HOUR_MS = 60 * 60 * 1000;
+      const lsKey = `vibe_transit_${user.id}`;
+
+      // 1. Check localStorage first (instant, no network)
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const age = Date.now() - new Date(parsed.fetchedAt).getTime();
+          if (age < ONE_HOUR_MS) {
+            setTransitChart(parsed);
+            setTransitLoading(false);
+            return;
+          }
+        }
+      } catch (e) { /* ignore parse errors */ }
+
+      // 2. Check Supabase (1-hour TTL)
+      const cached = await loadChart(user.id, 'transits');
+      const isStale = !cached?.fetchedAt || Date.now() - new Date(cached.fetchedAt).getTime() > ONE_HOUR_MS;
       if (!isStale) {
         setTransitChart(cached);
+        // Backfill localStorage
+        try { localStorage.setItem(lsKey, JSON.stringify(cached)); } catch (e) { /* quota */ }
         setTransitLoading(false);
         return;
       }
+
+      // 3. Fetch fresh from AstroApp
       const controller = new AbortController();
       const abortTimer = setTimeout(() => controller.abort(), 8000);
       try {
@@ -1011,6 +1033,7 @@ export default function EnergyReport() {
         if (res.ok) {
           const fresh = await res.json();
           saveChart(user.id, 'transits', fresh);
+          try { localStorage.setItem(lsKey, JSON.stringify(fresh)); } catch (e) { /* quota */ }
           setTransitChart(fresh);
         } else {
           const errBody = await res.text();
@@ -1023,7 +1046,7 @@ export default function EnergyReport() {
         if (cached) setTransitChart(cached);
       }
       setTransitLoading(false);
-    });
+    })();
   }, [user?.id]);
 
   // Failsafe: never block reports for more than 10s
