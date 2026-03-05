@@ -529,7 +529,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           <div style={{display:"flex",justifyContent:"center",gap:10,marginTop:20}}>
             {mode==="plot"&&plotPoints.length>0&&<button onClick={undoPoint} style={btnStyle()}>undo</button>}
             <button onClick={clearAll} style={btnStyle()}>clear</button>
-            <button onClick={handleSave} disabled={saved} style={btnStyle(hasData ? auraColor : null)}>{saved?"✦ saved":"save"}</button>
+            <button onClick={handleSave} disabled={saved||!hasData} style={{...btnStyle(hasData ? auraColor : null), opacity: hasData ? 1 : 0.35, cursor: hasData ? "pointer" : "default"}}>{saved?"✦ saved":"save"}</button>
           </div>
 
           {logs.length>0&&(
