@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
 import { capture } from "../lib/analytics";
 import { loadChart } from "../lib/chartStorage";
+import { loadProfile, saveProfile } from "../lib/profileStorage";
 
 const R = 148;
 const PAD = 62;
@@ -289,14 +290,20 @@ function _orb(a, b) { let d=Math.abs(a-b)%360; return d>180?360-d:d; }
 function _moonPhase(pos) {
   if (!pos?.Sun||!pos?.Moon) return null;
   const angle = ((_toAbs(pos.Moon.sign,pos.Moon.degree,pos.Moon.minute) - _toAbs(pos.Sun.sign,pos.Sun.degree,pos.Sun.minute)) % 360 + 360) % 360;
-  if (angle<45) return 'New Moon';
-  if (angle<90) return 'Waxing Crescent';
-  if (angle<135) return 'First Quarter';
-  if (angle<180) return 'Waxing Gibbous';
-  if (angle<225) return 'Full Moon';
-  if (angle<270) return 'Waning Gibbous';
-  if (angle<315) return 'Last Quarter';
-  return 'Waning Crescent';
+  let phase;
+  if (angle<45) phase='New Moon';
+  else if (angle<90) phase='Waxing Crescent';
+  else if (angle<135) phase='First Quarter';
+  else if (angle<180) phase='Waxing Gibbous';
+  else if (angle<225) phase='Full Moon';
+  else if (angle<270) phase='Waning Gibbous';
+  else if (angle<315) phase='Last Quarter';
+  else phase='Waning Crescent';
+  const illumination = Math.round((1 - Math.cos(angle * Math.PI / 180)) / 2 * 100);
+  const moonSign = pos.Moon.sign;
+  const moonDeg = pos.Moon.degree;
+  const moonMin = pos.Moon.minute ?? 0;
+  return `${phase} ${illumination}% · ${moonSign} ${moonDeg}°${moonMin > 0 ? moonMin + "'": ''}`;
 }
 
 function _dominantSign(pos) {
@@ -369,6 +376,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [loading, setLoading] = useState(true);
   const [prompt] = useState(NOTE_PROMPTS[Math.floor(Math.random()*NOTE_PROMPTS.length)]);
   const svgRef = useRef(null);
@@ -386,6 +394,12 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
   useEffect(() => {
     if (!user) return;
     loadLogs();
+    // Check if user has seen the tutorial
+    loadProfile(user.id).then(profile => {
+      if (profile && !profile.has_seen_tutorial) {
+        setShowTutorial(true);
+      }
+    }).catch(() => {});
     // Load charts silently in the background for sky snapshot at save time
     loadChart(user.id, 'natal').then(c => { natalRef.current = c; });
     try {
@@ -479,7 +493,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
 
     const skySnapshot = buildSkySnapshot(q?.intensity ?? null, natalRef.current, transitRef.current);
 
-    console.log('[VibeCircle] saving entry, intensity_score:', skySnapshot.intensity_score, 'transit loaded:', !!transitRef.current);
+    console.log('[VibeCircle] snapshot:', { intensity_score: skySnapshot.intensity_score, transit: !!transitRef.current, moon: skySnapshot.moon_phase, retrogrades: skySnapshot.retrograde_planets });
 
     const entry = {
       user_id: user.id,
@@ -521,6 +535,15 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
 
   async function handleSignOut() {
     await signOut();
+  }
+
+  async function dismissTutorial() {
+    setShowTutorial(false);
+    try {
+      await saveProfile(user.id, { has_seen_tutorial: true });
+    } catch (e) {
+      console.warn('Failed to save tutorial status:', e);
+    }
   }
 
   return (
@@ -683,6 +706,127 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
             <textarea readOnly value={JSON.stringify({exported:new Date().toISOString(),count:logs.length,logs},null,2)}
               style={{width:"100%",height:280,background:"rgba(0,0,0,0.4)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10,padding:"12px 14px",color:"rgba(255,255,255,0.6)",fontFamily:"monospace",fontSize:10.5,lineHeight:1.6,resize:"none"}}
               onClick={e=>e.target.select()} onFocus={e=>e.target.select()}/>
+          </div>
+        </div>
+      )}
+
+      {showTutorial && (
+        <div style={{position:"fixed",inset:0,background:"rgba(5,5,16,0.95)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{width:"100%",maxWidth:420,animation:"fadeIn 0.5s ease"}}>
+            <div style={{textAlign:"center",marginBottom:24}}>
+              <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:300,fontSize:28,margin:0,letterSpacing:"0.04em",color:"white"}}>
+                your vibe wheel
+              </h2>
+              <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:8,fontStyle:"italic"}}>
+                how to map your inner sky
+              </div>
+            </div>
+
+            <div style={{
+              background:"rgba(255,255,255,0.02)",
+              border:"1px solid rgba(255,255,255,0.06)",
+              borderRadius:20,
+              padding:"24px 22px",
+            }}>
+              {/* Mini vibe wheel illustration */}
+              <div style={{
+                width:120,
+                height:120,
+                margin:"0 auto 24px",
+                borderRadius:"50%",
+                background:"conic-gradient(from 0deg, #C49FFF, #A89FFF, #7FB8FF, #7FE8FF, #B0FF7F, #7FFFD4, #FFD47F, #FFB07F, #FF7F9B, #FF7FD4, #FF7FFF, #E07FFF, #C49FFF)",
+                opacity:0.6,
+                position:"relative",
+              }}>
+                <div style={{
+                  position:"absolute",
+                  inset:"40%",
+                  borderRadius:"50%",
+                  background:"#050510",
+                }} />
+              </div>
+
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                <div style={{
+                  display:"flex",
+                  alignItems:"flex-start",
+                  gap:14,
+                  padding:"14px 16px",
+                  background:"rgba(255,255,255,0.03)",
+                  borderRadius:12,
+                }}>
+                  <span style={{fontSize:20,marginTop:2}}>👆</span>
+                  <div>
+                    <div style={{fontSize:14,color:"rgba(255,255,255,0.85)",marginBottom:4,fontFamily:"'Cormorant Garamond',serif"}}>
+                      Tap to plot
+                    </div>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>
+                      Touch anywhere on the wheel to mark where your energy is right now
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  display:"flex",
+                  alignItems:"flex-start",
+                  gap:14,
+                  padding:"14px 16px",
+                  background:"rgba(255,255,255,0.03)",
+                  borderRadius:12,
+                }}>
+                  <span style={{fontSize:20,marginTop:2}}>✍️</span>
+                  <div>
+                    <div style={{fontSize:14,color:"rgba(255,255,255,0.85)",marginBottom:4,fontFamily:"'Cormorant Garamond',serif"}}>
+                      Draw to express
+                    </div>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>
+                      Switch to draw mode for a more fluid, gestural vibe entry
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  display:"flex",
+                  alignItems:"flex-start",
+                  gap:14,
+                  padding:"14px 16px",
+                  background:"rgba(255,255,255,0.03)",
+                  borderRadius:12,
+                }}>
+                  <span style={{fontSize:20,marginTop:2}}>🌈</span>
+                  <div>
+                    <div style={{fontSize:14,color:"rgba(255,255,255,0.85)",marginBottom:4,fontFamily:"'Cormorant Garamond',serif"}}>
+                      Colors are vibes
+                    </div>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>
+                      Each region represents a different emotional quality — from Expanded to Contracted, Energized to Depleted
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={dismissTutorial}
+              style={{
+                display:"block",
+                width:"100%",
+                marginTop:24,
+                padding:"16px 24px",
+                borderRadius:99,
+                border:"1px solid rgba(196,159,255,0.5)",
+                background:"rgba(196,159,255,0.18)",
+                color:"white",
+                fontFamily:"'Cormorant Garamond',serif",
+                fontSize:14,
+                letterSpacing:"0.16em",
+                textTransform:"uppercase",
+                cursor:"pointer",
+                boxShadow:"0 0 24px rgba(196,159,255,0.2)",
+              }}
+            >
+              got it
+            </button>
           </div>
         </div>
       )}
