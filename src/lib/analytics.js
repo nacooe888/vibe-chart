@@ -14,30 +14,20 @@ if (key) {
 
   // Fire session_end with duration when user leaves/tabs away
   function onLeave() {
-    console.log('[Analytics] onLeave called, sessionStart:', sessionStart)
-    if (!sessionStart) {
-      console.log('[Analytics] No sessionStart, skipping')
-      return
-    }
+    if (!sessionStart) return
     const now = Date.now()
     const duration_seconds = Math.round((now - sessionStart) / 1000)
     const startTime = sessionStart
-    sessionStart = null // Reset immediately to prevent double-firing
+    sessionStart = null
 
-    if (duration_seconds < 1) {
-      console.log('[Analytics] Duration < 1s, skipping')
-      return
-    }
+    if (duration_seconds < 1) return
 
-    console.log('[Analytics] Sending session_end, duration:', duration_seconds)
-    // Use sendBeacon transport to ensure delivery even when page is closing
     posthog.capture('session_end', {
       duration_seconds,
       duration_ms: now - startTime,
       session_start_time: new Date(startTime).toISOString(),
       session_end_time: new Date(now).toISOString(),
     }, { transport: 'sendBeacon' })
-    console.log('[Analytics] session_end sent')
   }
 
   // Resume session when user returns to tab
@@ -63,18 +53,13 @@ if (key) {
 
 export function identify(userId) {
   if (!key) return
-  console.log('[Analytics] identify:', userId)
   posthog.identify(userId)
   isIdentified = true
 }
 
 export function capture(event, properties = {}) {
   if (!key) return
-  if (event === 'session_start') {
-    sessionStart = Date.now()
-    console.log('[Analytics] session_start, sessionStart set to:', sessionStart)
-  }
-  console.log('[Analytics] capture:', event, properties)
+  if (event === 'session_start') sessionStart = Date.now()
   posthog.capture(event, properties)
 }
 
