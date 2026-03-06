@@ -484,11 +484,14 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
     // Always use freshest transit from localStorage (EnergyReport may have updated it)
     try {
       const raw = localStorage.getItem(`vibe_transit_${user.id}`);
+      console.log('[VibeCircle] localStorage transit raw:', raw ? 'found (' + raw.length + ' chars)' : 'null');
       if (raw) transitRef.current = JSON.parse(raw);
-    } catch (e) {}
+    } catch (e) { console.error('[VibeCircle] localStorage parse error:', e); }
     // Fallback: load from Supabase if still missing
     if (!transitRef.current) {
+      console.log('[VibeCircle] falling back to Supabase for transit...');
       transitRef.current = await loadChart(user.id, 'transits');
+      console.log('[VibeCircle] Supabase transit:', transitRef.current ? 'found' : 'null');
     }
 
     const skySnapshot = buildSkySnapshot(q?.intensity ?? null, natalRef.current, transitRef.current);
