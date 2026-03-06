@@ -485,11 +485,15 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       ...skySnapshot,
     };
 
+    console.log('[VibeCircle] saving entry, intensity_score:', skySnapshot.intensity_score, 'q?.intensity:', q?.intensity);
+
     const { data, error } = await supabase
       .from('vibe_logs')
       .insert([entry])
       .select()
       .single();
+
+    if (error) console.error('[VibeCircle] insert error:', error);
 
     if (!error && data) {
       setLogs(prev => [...prev, data]);
