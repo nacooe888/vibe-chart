@@ -13,14 +13,22 @@ if (key) {
   })
 
   // Fire session_end with duration when user leaves/tabs away
-  function onLeave(useBeacon = false) {
+  function onLeave() {
     if (!sessionStart) return
-    const duration_seconds = Math.round((Date.now() - sessionStart) / 1000)
+    const now = Date.now()
+    const duration_seconds = Math.round((now - sessionStart) / 1000)
+    const startTime = sessionStart
+    sessionStart = null // Reset immediately to prevent double-firing
+
     if (duration_seconds < 1) return // ignore very short sessions
 
-    const options = useBeacon ? { transport: 'sendBeacon' } : {}
-    posthog.capture('session_end', { duration_seconds }, options)
-    sessionStart = null
+    // Use sendBeacon transport to ensure delivery even when page is closing
+    posthog.capture('session_end', {
+      duration_seconds,
+      duration_ms: now - startTime,
+      session_start_time: new Date(startTime).toISOString(),
+      session_end_time: new Date(now).toISOString(),
+    }, { transport: 'sendBeacon' })
   }
 
   // Resume session when user returns to tab
@@ -31,20 +39,17 @@ if (key) {
     posthog.capture('session_resume')
   }
 
-  // pagehide needs sendBeacon since page is unloading
-  window.addEventListener('pagehide', () => onLeave(true))
+  // Track session end on all exit scenarios
+  window.addEventListener('pagehide', onLeave)
+  window.addEventListener('beforeunload', onLeave)
 
-  // visibilitychange can use regular fetch
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      onLeave(false)
+      onLeave()
     } else if (document.visibilityState === 'visible') {
       onReturn()
     }
   })
-
-  // Also try beforeunload as backup for tab close
-  window.addEventListener('beforeunload', () => onLeave(true))
 }
 
 export function identify(userId) {
