@@ -25,8 +25,14 @@ create table if not exists public.vibe_logs (
   -- Raw point data
   points jsonb,
 
-  -- Future: transit data
-  transits jsonb
+  -- Sky context snapshot (populated automatically at save time)
+  transit_positions    jsonb,
+  active_transits      jsonb,
+  transit_peak_proximity jsonb,
+  moon_phase           text,
+  retrograde_planets   jsonb,
+  dominant_sign        text,
+  intensity_score      numeric
 );
 
 -- Create index for faster user queries

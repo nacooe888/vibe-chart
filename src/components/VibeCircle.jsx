@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useVibe } from "../contexts/VibeContext";
 import { capture } from "../lib/analytics";
+import { loadChart } from "../lib/chartStorage";
 
 const R = 148;
 const PAD = 62;
@@ -280,6 +281,83 @@ function PatternsView({ logs }) {
 // Export PatternsView for the Cycles tab
 export { PatternsView };
 
+// ─── Sky snapshot utilities (called silently at save time) ───────────────────
+const _SIGNS_DEG = {Aries:0,Taurus:30,Gemini:60,Cancer:90,Leo:120,Virgo:150,Libra:180,Scorpio:210,Sagittarius:240,Capricorn:270,Aquarius:300,Pisces:330};
+function _toAbs(sign, deg, min=0) { return (_SIGNS_DEG[sign]||0) + deg + min/60; }
+function _orb(a, b) { let d=Math.abs(a-b)%360; return d>180?360-d:d; }
+
+function _moonPhase(pos) {
+  if (!pos?.Sun||!pos?.Moon) return null;
+  const angle = ((_toAbs(pos.Moon.sign,pos.Moon.degree,pos.Moon.minute) - _toAbs(pos.Sun.sign,pos.Sun.degree,pos.Sun.minute)) % 360 + 360) % 360;
+  if (angle<45) return 'New Moon';
+  if (angle<90) return 'Waxing Crescent';
+  if (angle<135) return 'First Quarter';
+  if (angle<180) return 'Waxing Gibbous';
+  if (angle<225) return 'Full Moon';
+  if (angle<270) return 'Waning Gibbous';
+  if (angle<315) return 'Last Quarter';
+  return 'Waning Crescent';
+}
+
+function _dominantSign(pos) {
+  if (!pos) return null;
+  const counts = {};
+  ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto'].forEach(p => {
+    if (pos[p]?.sign) counts[pos[p].sign] = (counts[pos[p].sign]||0)+1;
+  });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+}
+
+function _retrogrades(pos) {
+  if (!pos) return [];
+  return Object.entries(pos).filter(([,p])=>p?.retrograde===true).map(([name])=>name);
+}
+
+function _activeTransits(natal, transits) {
+  if (!natal?.positions||!transits?.positions) return [];
+  const ASPECTS=[{deg:0,name:'conjunct'},{deg:60,name:'sextile'},{deg:90,name:'square'},{deg:120,name:'trine'},{deg:180,name:'opposite'}];
+  const SLOW=['Jupiter','Saturn','Uranus','Neptune','Pluto','Chiron'];
+  const results=[];
+  Object.entries(transits.positions).forEach(([tp,tpos])=>{
+    if (!tpos?.sign) return;
+    const tAbs=_toAbs(tpos.sign,tpos.degree,tpos.minute);
+    const maxOrb=SLOW.includes(tp)?5:2;
+    Object.entries(natal.positions).forEach(([np,npos])=>{
+      if (!npos?.sign) return;
+      const diff=_orb(tAbs,_toAbs(npos.sign,npos.degree,npos.minute));
+      ASPECTS.forEach(asp=>{
+        const orb=Math.abs(diff-asp.deg);
+        if (orb<=maxOrb) results.push({transit_planet:tp,aspect:asp.name,natal_planet:np,orb:Math.round(orb*100)/100});
+      });
+    });
+  });
+  return results.sort((a,b)=>a.orb-b.orb).slice(0,15);
+}
+
+function _peakProximity(active, pos) {
+  if (!pos||!active?.length) return null;
+  const result={};
+  active.forEach(t=>{
+    const speed=pos[t.transit_planet]?.speed;
+    if (speed!=null&&speed!==0) result[`${t.transit_planet} ${t.aspect} ${t.natal_planet}`]=Math.round(Math.abs(t.orb/speed)*10)/10;
+  });
+  return Object.keys(result).length>0?result:null;
+}
+
+function buildSkySnapshot(intensity, natal, transits) {
+  const pos = transits?.positions||null;
+  const active = _activeTransits(natal, transits);
+  return {
+    transit_positions: pos||null,
+    active_transits: active.length>0?active:null,
+    transit_peak_proximity: _peakProximity(active, pos),
+    moon_phase: _moonPhase(pos),
+    retrograde_planets: _retrogrades(pos),
+    dominant_sign: _dominantSign(pos),
+    intensity_score: intensity!=null ? Math.round((intensity/100)*10000)/10000 : null,
+  };
+}
+
 export default function VibeCircle({ showSignOut = true, onSave }) {
   const { user, signOut } = useAuth();
   const { recordVibe } = useVibe();
@@ -295,6 +373,8 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
   const svgRef = useRef(null);
   const dragging = useRef(false);
   const didMove = useRef(false);
+  const natalRef = useRef(null);
+  const transitRef = useRef(null);
 
   const activePoints = mode==="plot" ? plotPoints : drawPoints;
   const hasData = activePoints.length > 1;
@@ -305,6 +385,18 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
   useEffect(() => {
     if (!user) return;
     loadLogs();
+    // Load charts silently in the background for sky snapshot at save time
+    loadChart(user.id, 'natal').then(c => { natalRef.current = c; });
+    try {
+      const raw = localStorage.getItem(`vibe_transit_${user.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Date.now() - new Date(parsed.fetchedAt).getTime() < 60 * 60 * 1000) {
+          transitRef.current = parsed; return;
+        }
+      }
+    } catch (e) {}
+    loadChart(user.id, 'transits').then(c => { transitRef.current = c; });
   }, [user]);
 
   async function loadLogs() {
@@ -374,6 +466,8 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
     if (!canSave) return;
     const q = quantifyPoints(activePoints);
 
+    const skySnapshot = buildSkySnapshot(q?.intensity ?? null, natalRef.current, transitRef.current);
+
     const entry = {
       user_id: user.id,
       mode,
@@ -388,6 +482,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       vertical_bias: q?.vertical_bias ?? null,
       horizontal_bias: q?.horizontal_bias ?? null,
       points: q?.points ?? [],
+      ...skySnapshot,
     };
 
     const { data, error } = await supabase

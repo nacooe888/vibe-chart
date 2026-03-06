@@ -57,7 +57,7 @@ export default function ProfileScreen({ onClose }) {
         try {
           const res = await fetch('/api/astro', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-PostHog-Distinct-Id': user.id },
             body: JSON.stringify({
               type: 'natal',
               name: name || undefined,

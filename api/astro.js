@@ -1,6 +1,17 @@
 // Vercel serverless function for AstroApp chart calculations
 // Handles JWT auth rotation, geocoding, ayanamsa conversion
 
+import { PostHog } from 'posthog-node'
+
+function getPostHog() {
+  return new PostHog(process.env.POSTHOG_API_KEY, {
+    host: process.env.POSTHOG_HOST || 'https://us.i.posthog.com',
+    flushAt: 1,
+    flushInterval: 0,
+    enableExceptionAutocapture: true,
+  })
+}
+
 export const config = {
   api: {
     bodyParser: {
@@ -133,7 +144,12 @@ function parseAstroResponse(data, ayanamsa) {
       const name = PLANET_NAMES[obj.id]
       if (name && obj.lng != null) {
         const sidLng = tropicalToSidereal(obj.lng, ayanamsa)
-        positions[name] = { ...lngToPosition(sidLng), tropical: Math.round(obj.lng * 1000) / 1000 }
+        positions[name] = {
+          ...lngToPosition(sidLng),
+          tropical: Math.round(obj.lng * 1000) / 1000,
+          retrograde: typeof obj.spd === 'number' ? obj.spd < 0 : false,
+          speed: typeof obj.spd === 'number' ? Math.round(obj.spd * 10000) / 10000 : null,
+        }
       }
     })
   }
@@ -167,6 +183,8 @@ export default async function handler(req, res) {
   }
 
   const { type, birthDate, birthTime, birthLocation, name } = req.body || {}
+  const distinctId = req.headers['x-posthog-distinct-id'] || 'anonymous'
+  const posthog = getPostHog()
 
   try {
     if (type === 'natal') {
@@ -183,6 +201,12 @@ export default async function handler(req, res) {
 
       if (!astroRes.ok) {
         const errText = await astroRes.text()
+        await posthog.captureImmediate({
+          distinctId,
+          event: 'chart_generation_failed',
+          properties: { chart_type: 'natal', status_code: astroRes.status, error: errText },
+        })
+        await posthog.shutdown()
         return res.status(502).json({ error: `AstroApp error (${astroRes.status}): ${errText}` })
       }
 
@@ -193,6 +217,16 @@ export default async function handler(req, res) {
         month: 'short', day: 'numeric', year: 'numeric',
       })
 
+      await posthog.captureImmediate({
+        distinctId,
+        event: 'natal_chart_generated',
+        properties: {
+          has_birth_time: !!birthTime,
+          birth_location: birthLocation,
+          ayanamsa: 'sidereal Fagan-Allen',
+        },
+      })
+      await posthog.shutdown()
       return res.status(200).json({
         type: 'natal',
         date: dateDisplay,
@@ -220,6 +254,12 @@ export default async function handler(req, res) {
 
       if (!astroRes.ok) {
         const errText = await astroRes.text()
+        await posthog.captureImmediate({
+          distinctId,
+          event: 'chart_generation_failed',
+          properties: { chart_type: 'transits', status_code: astroRes.status, error: errText },
+        })
+        await posthog.shutdown()
         return res.status(502).json({ error: `AstroApp error (${astroRes.status}): ${errText}` })
       }
 
@@ -230,6 +270,12 @@ export default async function handler(req, res) {
         month: 'short', day: 'numeric', year: 'numeric',
       })
 
+      await posthog.captureImmediate({
+        distinctId,
+        event: 'transit_chart_generated',
+        properties: { date: dateStr, ayanamsa: 'sidereal Fagan-Allen' },
+      })
+      await posthog.shutdown()
       return res.status(200).json({
         type: 'transits',
         date: dateDisplay,
@@ -241,9 +287,17 @@ export default async function handler(req, res) {
       })
     }
 
+    await posthog.shutdown()
     return res.status(400).json({ error: 'type must be "natal" or "transits"' })
   } catch (err) {
     console.error('astro handler error:', err)
+    posthog.captureException(err, distinctId)
+    await posthog.captureImmediate({
+      distinctId,
+      event: 'chart_generation_failed',
+      properties: { chart_type: type, error: err.message },
+    })
+    await posthog.shutdown()
     return res.status(500).json({ error: err.message || 'Chart calculation failed' })
   }
 }
