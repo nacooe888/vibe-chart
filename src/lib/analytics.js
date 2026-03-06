@@ -2,6 +2,7 @@ import posthog from 'posthog-js'
 
 const key = import.meta.env.VITE_POSTHOG_KEY
 let sessionStart = null
+let isIdentified = false
 
 if (key) {
   posthog.init(key, {
@@ -11,22 +12,36 @@ if (key) {
     capture_pageleave: true,
   })
 
-  // Fire session_end with duration when user leaves
+  // Fire session_end with duration when user leaves/tabs away
   function onLeave() {
     if (!sessionStart) return
     const duration_seconds = Math.round((Date.now() - sessionStart) / 1000)
     posthog.capture('session_end', { duration_seconds }, { transport: 'sendBeacon' })
     sessionStart = null
   }
+
+  // Resume session when user returns to tab
+  function onReturn() {
+    if (sessionStart) return // already active
+    if (!isIdentified) return // don't start session if not logged in
+    sessionStart = Date.now()
+    posthog.capture('session_resume')
+  }
+
   window.addEventListener('pagehide', onLeave)
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') onLeave()
+    if (document.visibilityState === 'hidden') {
+      onLeave()
+    } else if (document.visibilityState === 'visible') {
+      onReturn()
+    }
   })
 }
 
 export function identify(userId) {
   if (!key) return
   posthog.identify(userId)
+  isIdentified = true
 }
 
 export function capture(event, properties = {}) {
@@ -38,5 +53,6 @@ export function capture(event, properties = {}) {
 export function reset() {
   if (!key) return
   sessionStart = null
+  isIdentified = false
   posthog.reset()
 }
