@@ -309,8 +309,9 @@ function _dominantSign(pos) {
 }
 
 function _retrogrades(pos) {
-  if (!pos) return [];
-  return Object.entries(pos).filter(([,p])=>p?.retrograde===true).map(([name])=>name);
+  if (!pos) return null;
+  const r = Object.entries(pos).filter(([,p])=>p?.retrograde===true).map(([name])=>name);
+  return r.length > 0 ? r : null;
 }
 
 function _activeTransits(natal, transits) {
@@ -466,7 +467,14 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
     if (!canSave) return;
     const q = quantifyPoints(activePoints);
 
+    // Ensure transit chart is loaded before building snapshot
+    if (!transitRef.current) {
+      transitRef.current = await loadChart(user.id, 'transits');
+    }
+
     const skySnapshot = buildSkySnapshot(q?.intensity ?? null, natalRef.current, transitRef.current);
+
+    console.log('[VibeCircle] saving entry, intensity_score:', skySnapshot.intensity_score, 'transit loaded:', !!transitRef.current);
 
     const entry = {
       user_id: user.id,
@@ -484,8 +492,6 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       points: q?.points ?? [],
       ...skySnapshot,
     };
-
-    console.log('[VibeCircle] saving entry, intensity_score:', skySnapshot.intensity_score, 'q?.intensity:', q?.intensity);
 
     const { data, error } = await supabase
       .from('vibe_logs')
