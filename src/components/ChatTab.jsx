@@ -4,6 +4,7 @@ import { loadChart } from "../lib/chartStorage";
 import { supabase } from "../lib/supabase";
 import { getSkyContext } from "./EnergyReport";
 import { chatSystemPrompt } from "../lib/prompts";
+import { capture } from "../lib/analytics";
 
 const ACCENT = "#C49FFF";
 
@@ -89,6 +90,12 @@ export default function ChatTab() {
     setInput("");
     setLoading(true);
 
+    capture('chat_message_sent', {
+      message_count: newMessages.length,
+      has_natal: !!natalRef.current,
+      has_transits: !!transitRef.current,
+    });
+
     // Always read from refs so we get latest chart data even if state hasn't re-rendered
     const skyContext = getSkyContext(natalRef.current, transitRef.current);
 
@@ -160,7 +167,7 @@ export default function ChatTab() {
                 "What transits are most active for me right now?",
                 "What does my chart say about what I'm going through?",
               ].map(q => (
-                <button key={q} onClick={() => { setInput(q); setTimeout(() => inputRef.current?.focus(), 0); }}
+                <button key={q} onClick={() => { capture('chat_suggestion_tapped', { question: q }); setInput(q); setTimeout(() => inputRef.current?.focus(), 0); }}
                   style={{
                     background: "rgba(255,255,255,0.03)",
                     border: "1px solid rgba(255,255,255,0.1)",
