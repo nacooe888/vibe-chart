@@ -467,7 +467,12 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
     if (!canSave) return;
     const q = quantifyPoints(activePoints);
 
-    // Ensure transit chart is loaded before building snapshot
+    // Always use freshest transit from localStorage (EnergyReport may have updated it)
+    try {
+      const raw = localStorage.getItem(`vibe_transit_${user.id}`);
+      if (raw) transitRef.current = JSON.parse(raw);
+    } catch (e) {}
+    // Fallback: load from Supabase if still missing
     if (!transitRef.current) {
       transitRef.current = await loadChart(user.id, 'transits');
     }
