@@ -7,7 +7,7 @@ if (key) {
     api_host: 'https://us.i.posthog.com',
     person_profiles: 'identified_only',
     capture_pageview: false,
-    capture_pageleave: false,
+    capture_pageleave: true,
   })
 }
 
