@@ -95,7 +95,10 @@ IMPORTANT: Only include transits explicitly listed in the TRANSIT-TO-NATAL ASPEC
 
 // ── Transit Deep Reading (full single-transit reading) ─────────────────────
 export function transitDeepPrompt(vibe, vibeData, transit, skyContext) {
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
   return `You are a personal astrologer writing a deep dive on one specific transit. Keep all text fields concise — no field should exceed 2 sentences.
+
+Today's date: ${today}
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
 Note: "${vibeData.note}"
@@ -103,6 +106,8 @@ Note: "${vibeData.note}"
 The transit to explore: ${transit.name}
 
 ${skyContext}
+
+IMPORTANT: The transit positions above are for TODAY (${today}). If the orb is very tight (under 1°), the exact date is likely today or within days of today — do NOT guess a date weeks or months away. Use the orb to determine if the transit is exact now, applying, or separating.
 
 For history.pastOccurrences: calculate actual years this exact transit-to-natal aspect last occurred based on the transiting planet's orbital period and the natal position. Most recent first, max 5. Include occurrences before their birth if none happened in their lifetime — always show when the planets were last in this configuration.
 
