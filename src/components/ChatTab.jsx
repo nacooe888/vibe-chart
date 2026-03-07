@@ -20,11 +20,12 @@ async function claudeFetch(body) {
   });
 }
 
-export default function ChatTab() {
+export default function ChatTab({ initialQuestion, onQuestionConsumed }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const initialQuestionHandled = useRef(false);
   const [chartsReady, setChartsReady] = useState(false);
   const [natalChart, setNatalChart] = useState(null);
   const [transitChart, setTransitChart] = useState(null);
@@ -79,6 +80,16 @@ export default function ChatTab() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // Handle initial question from transit deep dive
+  useEffect(() => {
+    if (initialQuestion && chartsReady && !initialQuestionHandled.current) {
+      initialQuestionHandled.current = true;
+      setInput(initialQuestion);
+      if (onQuestionConsumed) onQuestionConsumed();
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [initialQuestion, chartsReady, onQuestionConsumed]);
 
   async function sendMessage() {
     const text = input.trim();

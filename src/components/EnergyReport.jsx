@@ -377,7 +377,7 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
 // ─── Transit Deep Screen ───
 const transitCache = {};
 
-function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, skyContext, latestVibe }) {
+function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat, skyContext, latestVibe }) {
   const vibeData = getVibeData(vibe, latestVibe);
   const cacheKey = `${vibe}-${transit.name}`;
   const [data, setData] = useState(transitCache[cacheKey] || null);
@@ -392,19 +392,48 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, skyCont
           transitCache[cacheKey] = parsed;
           setData(parsed);
         } catch {
-          const fallback = { strength:"unknown", exactDate:"unknown", cycle:"unknown", para1: r, para2:"" };
+          const fallback = {
+            movement: { orb: "—", status: "unknown", exactDate: "—" },
+            reading: { rarity: r, insight: "" },
+            arc: { type: "unknown", dates: [], currentPhase: "—" },
+            howToWork: "",
+            history: { lastOccurrence: "—", nextOccurrence: "—", lastTimeframe: "" }
+          };
           transitCache[cacheKey] = fallback;
           setData(fallback);
         }
         setLoading(false);
       })
       .catch(() => {
-        const fallback = { strength:"—", exactDate:"—", cycle:"—", para1:"This transit is asking something specific of you right now.", para2:"" };
+        const fallback = {
+          movement: { orb: "—", status: "—", exactDate: "—" },
+          reading: { rarity: "This transit is asking something specific of you right now.", insight: "" },
+          arc: { type: "—", dates: [], currentPhase: "—" },
+          howToWork: "",
+          history: { lastOccurrence: "—", nextOccurrence: "—", lastTimeframe: "" }
+        };
         transitCache[cacheKey] = fallback;
         setData(fallback);
         setLoading(false);
       });
   }, [cacheKey]);
+
+  const boxStyle = {
+    background: `${transit.color}0d`,
+    border: `1px solid ${transit.color}28`,
+    borderRadius: 14,
+    padding: "18px 20px",
+    marginBottom: 16,
+  };
+
+  const labelStyle = {
+    fontSize: 10,
+    letterSpacing: "0.22em",
+    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.5)",
+    marginBottom: 10,
+    fontWeight: 400,
+  };
 
   return (
     <div style={{ minHeight:"100vh", padding:"48px 28px 80px", fontFamily:"'Cormorant Garamond',serif", color:"white", maxWidth:480, margin:"0 auto" }}>
@@ -423,36 +452,120 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, skyCont
         </div>
       ) : (
         <div style={{ animation:"fadeUp 0.6s ease" }}>
-          <div style={{ background:`${transit.color}0d`, border:`1px solid ${transit.color}28`, borderRadius:12, padding:"14px 18px", textAlign:"center", marginBottom:20 }}>
-            <div style={{ fontSize:10, letterSpacing:"0.22em", textTransform:"uppercase", color:"rgba(255,255,255,0.55)", marginBottom:6, fontWeight:400 }}>movement</div>
-            <div style={{ fontSize:14, color:transit.color, fontWeight:400 }}>{data?.strength || "—"}</div>
+          {/* Box 1: Movement */}
+          <div style={boxStyle}>
+            <div style={labelStyle}>movement</div>
+            <div style={{ fontSize:16, color:transit.color, fontWeight:400, textAlign:"center" }}>
+              {data?.movement?.orb || "—"} · {data?.movement?.status || "—"}
+            </div>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.6)", textAlign:"center", marginTop:6 }}>
+              exact {data?.movement?.exactDate || "—"}
+            </div>
           </div>
 
-          {data?.para1 && (
-            <div style={{ fontSize:16, lineHeight:2, color:"rgba(255,255,255,0.88)", fontWeight:300, textAlign:"center", marginBottom:20, padding:"0 4px" }}>
-              {data.para1}
-            </div>
-          )}
-
-          <div style={{ background:`${transit.color}0d`, border:`1px solid ${transit.color}28`, borderRadius:12, padding:"14px 18px", textAlign:"center", marginBottom:20 }}>
-            <div style={{ fontSize:10, letterSpacing:"0.22em", textTransform:"uppercase", color:"rgba(255,255,255,0.55)", marginBottom:6, fontWeight:400 }}>exact</div>
-            <div style={{ fontSize:14, color:transit.color, fontWeight:400, lineHeight:1.5 }}>{data?.exactDate || "—"}</div>
+          {/* Box 2: The Reading */}
+          <div style={{ ...boxStyle, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div style={labelStyle}>the reading</div>
+            {data?.reading?.rarity && (
+              <div style={{ fontSize:15, lineHeight:1.9, color:"rgba(255,255,255,0.85)", fontWeight:300, marginBottom:16 }}>
+                {data.reading.rarity}
+              </div>
+            )}
+            {data?.reading?.insight && (
+              <div style={{ fontSize:15, lineHeight:1.9, color:"rgba(255,255,255,0.85)", fontWeight:300 }}>
+                {data.reading.insight}
+              </div>
+            )}
           </div>
 
-          {data?.para2 && (
-            <div style={{ fontSize:16, lineHeight:2, color:"rgba(255,255,255,0.88)", fontWeight:300, textAlign:"center", marginBottom:20, padding:"0 4px" }}>
-              {data.para2}
+          {/* Box 3: Planetary Arc */}
+          {data?.arc?.dates?.length > 0 && (
+            <div style={boxStyle}>
+              <div style={labelStyle}>planetary arc</div>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, flexWrap:"wrap" }}>
+                {data.arc.dates.map((date, i) => {
+                  const isCurrent = data.arc.currentPhase?.toLowerCase().includes(date.toLowerCase()) ||
+                    (i === Math.floor(data.arc.dates.length / 2) && data.arc.currentPhase?.includes("now"));
+                  return (
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{
+                        padding: "6px 14px",
+                        borderRadius: 99,
+                        background: isCurrent ? `${transit.color}30` : "rgba(255,255,255,0.05)",
+                        border: isCurrent ? `1px solid ${transit.color}` : "1px solid rgba(255,255,255,0.1)",
+                        fontSize: 12,
+                        color: isCurrent ? transit.color : "rgba(255,255,255,0.6)",
+                        fontWeight: isCurrent ? 500 : 400,
+                      }}>
+                        {date}
+                      </div>
+                      {i < data.arc.dates.length - 1 && (
+                        <span style={{ color:"rgba(255,255,255,0.2)", fontSize:10 }}>→</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {data.arc.currentPhase && (
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textAlign:"center", marginTop:10, fontStyle:"italic" }}>
+                  {data.arc.currentPhase}
+                </div>
+              )}
             </div>
           )}
 
-          {data?.cycle && (
-            <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"16px 20px", textAlign:"center", marginBottom:24 }}>
-              <div style={{ fontSize:10, letterSpacing:"0.22em", textTransform:"uppercase", color:"rgba(255,255,255,0.55)", marginBottom:8, fontWeight:400 }}>the full cycle</div>
-              <div style={{ fontSize:14, color:"rgba(255,255,255,0.8)", lineHeight:1.8, fontWeight:300 }}>{data.cycle}</div>
+          {/* Box 4: How to Work With It */}
+          {data?.howToWork && (
+            <div style={{ ...boxStyle, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={labelStyle}>how to work with it</div>
+              <div style={{ fontSize:15, lineHeight:1.9, color:"rgba(255,255,255,0.85)", fontWeight:300 }}>
+                {data.howToWork}
+              </div>
             </div>
           )}
 
-          {/* Transit-specific ritual button */}
+          {/* Box 5: Last Time / Next Time */}
+          {(data?.history?.lastOccurrence || data?.history?.nextOccurrence) && (
+            <div style={boxStyle}>
+              <div style={labelStyle}>in your lifetime</div>
+              <div style={{ display:"flex", justifyContent:"space-around", textAlign:"center" }}>
+                <div>
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>last time</div>
+                  <div style={{ fontSize:16, color:transit.color }}>{data.history.lastOccurrence || "—"}</div>
+                </div>
+                <div style={{ width:1, background:"rgba(255,255,255,0.1)" }} />
+                <div>
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>next time</div>
+                  <div style={{ fontSize:16, color:transit.color }}>{data.history.nextOccurrence || "—"}</div>
+                </div>
+              </div>
+
+              {/* Chat prompt */}
+              {data.history.lastTimeframe && onChat && (
+                <div
+                  onClick={() => onChat(`What was going on for you in ${data.history.lastTimeframe}?`)}
+                  style={{
+                    marginTop:16,
+                    padding:"12px 16px",
+                    background:"rgba(255,255,255,0.04)",
+                    border:"1px solid rgba(255,255,255,0.1)",
+                    borderRadius:10,
+                    cursor:"pointer",
+                    transition:"all 0.2s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
+                >
+                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>reflect on this</div>
+                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.8)", fontStyle:"italic" }}>
+                    "What was going on for you in {data.history.lastTimeframe}?"
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ritual button */}
           {data && !loading && (
             <div
               onClick={onRitual}
@@ -462,7 +575,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, skyCont
                 borderRadius:16, padding:"18px 24px",
                 cursor:"pointer", transition:"all 0.2s",
                 textAlign:"center",
-                marginBottom:24,
+                marginTop:8,
               }}
               onMouseEnter={e=>e.currentTarget.style.background=`${transit.color}1a`}
               onMouseLeave={e=>e.currentTarget.style.background=`${transit.color}0e`}
@@ -475,7 +588,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, skyCont
             </div>
           )}
 
-          <div style={{ textAlign:"center" }}>
+          <div style={{ textAlign:"center", marginTop:20 }}>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", letterSpacing:"0.22em" }}>sidereal · fagan-allen · natal chart active</div>
           </div>
         </div>
@@ -881,7 +994,7 @@ function RitualScreen({ vibe, vibeColor, onBack, skyContext, latestVibe }) {
 }
 
 // ─── Main Component ───
-export default function EnergyReport() {
+export default function EnergyReport({ onOpenChat }) {
   const { user } = useAuth();
   const { latestVibe } = useVibe();
 
@@ -1058,6 +1171,7 @@ export default function EnergyReport() {
           transit={activeTransit}
           onBack={() => setScreen("deep")}
           onRitual={() => setScreen("transit-ritual")}
+          onChat={onOpenChat}
           skyContext={skyContext}
           latestVibe={latestVibe}
         />

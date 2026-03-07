@@ -71,10 +71,17 @@ function TabNav({ activeTab, onTabChange }) {
 function MainApp() {
   const [activeTab, setActiveTab] = useState('map')
   const [showProfile, setShowProfile] = useState(false)
+  const [pendingChatQuestion, setPendingChatQuestion] = useState(null)
 
   function handleTabChange(tabId) {
     capture('tab_changed', { tab: tabId })
     setActiveTab(tabId)
+  }
+
+  function openChatWithQuestion(question) {
+    setPendingChatQuestion(question)
+    setActiveTab('chat')
+    capture('chat_opened_from_transit', { question })
   }
 
   return (
@@ -107,10 +114,10 @@ function MainApp() {
 
       {/* Tab content */}
       {activeTab === 'map' && <VibeCircle showSignOut={false} onSave={() => { capture('tab_changed', { tab: 'report' }); setActiveTab('report') }} />}
-      {activeTab === 'report' && <EnergyReport />}
+      {activeTab === 'report' && <EnergyReport onOpenChat={openChatWithQuestion} />}
       {activeTab === 'ritual' && <RitualTab />}
       {activeTab === 'cycles' && <CyclesTab />}
-      {activeTab === 'chat' && <ChatTab />}
+      {activeTab === 'chat' && <ChatTab initialQuestion={pendingChatQuestion} onQuestionConsumed={() => setPendingChatQuestion(null)} />}
 
       {/* Tab navigation */}
       <TabNav activeTab={activeTab} onTabChange={handleTabChange} />

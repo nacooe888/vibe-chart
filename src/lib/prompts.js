@@ -95,7 +95,7 @@ IMPORTANT: Only include transits explicitly listed in the TRANSIT-TO-NATAL ASPEC
 
 // ── Transit Deep Reading (full single-transit reading) ─────────────────────
 export function transitDeepPrompt(vibe, vibeData, transit, skyContext) {
-  return `You are a personal astrologer writing a full reading on one specific transit.
+  return `You are a personal astrologer writing a deep dive on one specific transit.
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
 Note: "${vibeData.note}"
@@ -106,11 +106,26 @@ ${skyContext}
 
 Respond with ONLY valid JSON, no markdown:
 {
-  "strength": "Strengthening or Weakening — is this transit applying (getting tighter) or separating (moving apart)?",
-  "exactDate": "The date this transit is exact or was most recently exact — e.g. 'exact February 28, 2026' or 'exact January 14, 2026 · now separating'",
-  "cycle": "Is this a one-hit transit or multi-pass? e.g. 'one-hit only' or 'three-pass: first hit Dec 2025, exact again June 2026 (retrograde), final pass Oct 2026' — give the full story of this transit's timeline",
-  "para1": "2 sentences. What this transit means + how it specifically hits the natal chart right now.",
-  "para2": "2 sentences. Why the ${vibe} transmission makes sense in this context + what this transit is opening or asking."
+  "movement": {
+    "orb": "orb distance as decimal, e.g. '0.12°'",
+    "status": "applying | separating | exact",
+    "exactDate": "e.g. 'March 8, 2026'"
+  },
+  "reading": {
+    "rarity": "2-3 sentences. How rare or common is this transit? Once in a lifetime, once a decade, every few years? Acknowledge the ${vibe} vibe they logged. Make them understand the significance.",
+    "insight": "2-3 sentences. What is this transit actually doing in their chart specifically? Go deeper than surface meaning."
+  },
+  "arc": {
+    "type": "one-hit | multi-pass",
+    "dates": ["Dec 2025", "Mar 2026", "Oct 2026"],
+    "currentPhase": "which phase are we in now? e.g. 'second pass (retrograde)' or 'only pass'"
+  },
+  "howToWork": "2-3 sentences. If multi-pass: how to work with each phase. If one-hit: how to work with it while it's here. Practical, specific, transit-aware.",
+  "history": {
+    "lastOccurrence": "year or 'never in your lifetime' — when did this exact transit last happen in their chart?",
+    "nextOccurrence": "year — when will it happen again?",
+    "lastTimeframe": "e.g. '1996' or 'late 1980s' — for the chat prompt"
+  }
 }`;
 }
 
