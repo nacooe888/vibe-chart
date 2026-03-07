@@ -93,6 +93,7 @@ export default function Onboarding({ onComplete }) {
         experience_level: experienceLevel || 'new',
         depth_preference: depthPreference || 'adaptive',
         transit_preference: transitPreference || 'adaptive',
+        has_seen_tutorial: true,
       })
 
       // Generate natal chart if birth info is provided
