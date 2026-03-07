@@ -266,7 +266,7 @@ async function generateTransitDeep(vibe, vibeData, transit, skyContext) {
 
   const res = await claudeFetch({
     model:"claude-sonnet-4-6",
-    max_tokens:1600,
+    max_tokens:2000,
     messages:[{role:"user",content:prompt}],
   });
   const data = await res.json();
@@ -391,13 +391,27 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
     generateTransitDeep(vibe, vibeData, transit, skyContext)
       .then(r => {
         try {
-          const parsed = JSON.parse(r.replace(/```json|```/g,"").trim());
+          let cleaned = r.replace(/```json|```/g,"").trim();
+          // If JSON was truncated, try to close it
+          if (!cleaned.endsWith("}")) {
+            // Count unclosed braces and close them
+            const opens = (cleaned.match(/\{/g) || []).length;
+            const closes = (cleaned.match(/\}/g) || []).length;
+            // Truncate at last complete value (before trailing comma or partial string)
+            cleaned = cleaned.replace(/,?\s*"[^"]*"?\s*:?\s*"?[^"{}]*$/, "");
+            for (let i = 0; i < opens - closes; i++) cleaned += "}";
+          }
+          const parsed = JSON.parse(cleaned);
+          // Ensure history has expected shape
+          if (parsed.history && !parsed.history.pastOccurrences) {
+            parsed.history.pastOccurrences = parsed.history.lastOccurrence ? [parsed.history.lastOccurrence] : [];
+          }
           transitCache[cacheKey] = parsed;
           setData(parsed);
         } catch {
           const fallback = {
             movement: { orb: "—", status: "unknown", exactDate: "—" },
-            reading: { rarity: r, insight: "" },
+            reading: { rarity: "This transit is speaking to you right now.", insight: "" },
             arc: { type: "unknown", dates: [], currentPhase: "—" },
             howToWork: "",
             history: { pastOccurrences: [], neverInLifetime: false, nextOccurrence: "—" }

@@ -95,7 +95,7 @@ IMPORTANT: Only include transits explicitly listed in the TRANSIT-TO-NATAL ASPEC
 
 // ── Transit Deep Reading (full single-transit reading) ─────────────────────
 export function transitDeepPrompt(vibe, vibeData, transit, skyContext) {
-  return `You are a personal astrologer writing a deep dive on one specific transit.
+  return `You are a personal astrologer writing a deep dive on one specific transit. Keep all text fields concise — no field should exceed 2 sentences.
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
 Note: "${vibeData.note}"
@@ -106,7 +106,7 @@ ${skyContext}
 
 For history.pastOccurrences: calculate actual years this exact transit-to-natal aspect last occurred based on the transiting planet's orbital period and the natal position. Most recent first, max 5. If it truly never happened in their lifetime, return [] and set neverInLifetime to true.
 
-Respond with ONLY valid JSON, no markdown:
+Respond with ONLY valid JSON, no markdown. Keep it compact:
 {
   "movement": {
     "orb": "orb distance as decimal, e.g. '0.12°'",
@@ -114,15 +114,15 @@ Respond with ONLY valid JSON, no markdown:
     "exactDate": "e.g. 'March 8, 2026'"
   },
   "reading": {
-    "rarity": "2-3 sentences. How rare or common is this transit? Once in a lifetime, once a decade, every few years? Acknowledge the ${vibe} vibe they logged. Make them understand the significance.",
-    "insight": "2-3 sentences. What is this transit actually doing in their chart specifically? Go deeper than surface meaning."
+    "rarity": "2 sentences max. How rare is this transit and why it matters now. Acknowledge the ${vibe} vibe.",
+    "insight": "2 sentences max. What this transit is specifically doing in their chart."
   },
   "arc": {
     "type": "one-hit | multi-pass",
     "dates": ["Dec 2025", "Mar 2026", "Oct 2026"],
     "currentPhase": "which phase are we in now? e.g. 'second pass (retrograde)' or 'only pass'"
   },
-  "howToWork": "2-3 sentences. If multi-pass: how to work with each phase. If one-hit: how to work with it while it's here. Practical, specific, transit-aware.",
+  "howToWork": "2 sentences max. How to work with this transit right now. Practical and specific.",
   "history": {
     "pastOccurrences": ["2019", "2012", "2005"],
     "neverInLifetime": false,
