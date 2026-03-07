@@ -627,7 +627,18 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                           style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
                         >close</button>
                         {reflectSaved ? (
-                          <span style={{ fontSize:12, color:transit.color, letterSpacing:"0.1em" }}>saved</span>
+                          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                            <span style={{ fontSize:12, color:transit.color, letterSpacing:"0.1em" }}>logged</span>
+                            <button
+                              onClick={() => { setReflectText(""); setReflectSaved(false); }}
+                              style={{
+                                background:"none", border:`1px solid ${transit.color}44`,
+                                borderRadius:8, padding:"4px 12px",
+                                color:transit.color, fontFamily:"'Cormorant Garamond',serif",
+                                fontSize:11, letterSpacing:"0.08em", cursor:"pointer",
+                              }}
+                            >add another</button>
+                          </div>
                         ) : (
                           <button
                             disabled={reflectSaving}
