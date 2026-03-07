@@ -176,6 +176,12 @@ create table if not exists public.reflections (
   -- The reflection itself
   body text not null,
 
+  -- Entry classification
+  entry_type text check (entry_type in ('journal', 'reflect', 'arc')) default 'journal',
+  planet_category text check (planet_category in ('moon', 'personal', 'outer')),
+  arc_hit integer check (arc_hit in (1, 2, 3)),
+  arc_dates jsonb,
+
   -- Sky snapshot for future cycle analysis
   transit_positions jsonb
 );

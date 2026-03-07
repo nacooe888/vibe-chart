@@ -6,7 +6,7 @@ import { loadProfile } from "../lib/profileStorage";
 import { supabase } from "../lib/supabase";
 import { capture } from "../lib/analytics";
 import { shortReportPrompt, deepParagraphPrompt, deepTransitsPrompt, transitDeepPrompt, transitRitualPrompt, ritualPrompt } from "../lib/prompts";
-import { saveReflection } from "../lib/reflectionStorage";
+import { saveReflection, loadReflections, loadArcReflections } from "../lib/reflectionStorage";
 
 // Authenticated fetch wrapper — adds Supabase JWT so the server can rate-limit
 async function claudeFetch(body) {
@@ -375,6 +375,71 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
   );
 }
 
+// ─── Transit Planet Categories ───
+const MOON_PLANETS = ["Moon"];
+const PERSONAL_PLANETS = ["Sun", "Mercury", "Venus", "Mars"];
+const OUTER_PLANETS = ["Jupiter", "Saturn", "Uranus", "Neptune", "Pluto", "Chiron"];
+
+function getTransitPlanet(transitName) {
+  const match = transitName.match(/^(\w+)\s/);
+  return match ? match[1] : null;
+}
+
+function getPlanetCategory(planet) {
+  if (!planet) return "personal";
+  if (MOON_PLANETS.includes(planet)) return "moon";
+  if (PERSONAL_PLANETS.includes(planet)) return "personal";
+  if (OUTER_PLANETS.includes(planet)) return "outer";
+  return "personal";
+}
+
+// Detect which hit of a multi-pass arc we're in (1, 2, or 3)
+function getArcHit(arcData) {
+  if (!arcData || arcData.type !== "multi-pass" || !arcData.dates?.length) return null;
+  const phase = (arcData.currentPhase || "").toLowerCase();
+  if (phase.includes("first") || phase.includes("1st") || phase.includes("only")) return 1;
+  if (phase.includes("third") || phase.includes("3rd") || phase.includes("final") || phase.includes("last")) return 3;
+  if (phase.includes("second") || phase.includes("2nd") || phase.includes("retro")) return 2;
+  // Fallback: guess from number of dates
+  return arcData.dates.length >= 3 ? 2 : 1;
+}
+
+function getJournalPrompt(category, arcHit, arcDates, previousEntries) {
+  const hasPrevious = previousEntries?.length > 0;
+
+  // Multi-pass arc prompts override category
+  if (arcHit) {
+    if (arcHit === 1) return {
+      prompt: "what's present for you right now? how do you want to work with this arc?",
+      placeholder: "this is the first pass — what's surfacing, and what do you want to set in motion across this arc?",
+    };
+    if (arcHit === 2) return {
+      prompt: "what happened during the first hit? what's present now? what would you like to see by the final pass?",
+      placeholder: "the retrograde pass — what's being revisited, revised, or deepened?",
+    };
+    if (arcHit === 3) return {
+      prompt: "what has this arc taught you? what are you releasing or claiming?",
+      placeholder: "the final pass — what's completing, what are you integrating, what are you letting go?",
+    };
+  }
+
+  if (category === "moon") return {
+    prompt: "what's present for you right now?",
+    placeholder: "this transit moves quickly — what are you noticing in this moment?",
+  };
+
+  if (category === "personal") return {
+    prompt: "what's present now? what was present the last time this transit came through (about a year ago)?",
+    placeholder: "notice any patterns — what's similar or different from last time?",
+  };
+
+  // outer planets
+  return {
+    prompt: "what's present for you right now? what do you want to release or manifest with this transit?",
+    placeholder: "this is a slow, rare transit — what is it asking of you? what do you want to set in motion?",
+  };
+}
+
 // ─── Transit Deep Screen ───
 const transitCache = {};
 
@@ -392,6 +457,29 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
   const [journalText, setJournalText] = useState("");
   const [journalSaved, setJournalSaved] = useState(false);
   const [journalSaving, setJournalSaving] = useState(false);
+  const [previousEntries, setPreviousEntries] = useState([]);
+  const [arcEntries, setArcEntries] = useState([]);
+
+  const transitPlanet = getTransitPlanet(transit.name);
+  const planetCategory = getPlanetCategory(transitPlanet);
+
+  // Load previous reflections for this transit
+  useEffect(() => {
+    if (!user?.id) return;
+    loadReflections(user.id, transit.name).then(setPreviousEntries).catch(() => {});
+  }, [user?.id, transit.name]);
+
+  // Load arc-specific entries once we know the arc dates
+  const arcHit = data ? getArcHit(data.arc) : null;
+  const arcDates = data?.arc?.dates || null;
+  const isArc = arcHit !== null && arcDates?.length >= 2;
+
+  useEffect(() => {
+    if (!user?.id || !isArc || !arcDates) return;
+    loadArcReflections(user.id, transit.name, arcDates).then(setArcEntries).catch(() => {});
+  }, [user?.id, transit.name, isArc]);
+
+  const journalPromptData = getJournalPrompt(planetCategory, isArc ? arcHit : null, arcDates, previousEntries);
 
   useEffect(() => {
     if (transitCache[cacheKey]) { setData(transitCache[cacheKey]); setLoading(false); return; }
@@ -550,7 +638,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
             </div>
           )}
 
-          {/* Journal: what's present now */}
+          {/* Journal: smart prompts by transit type + arc phase */}
           {data && !loading && (
             <div style={boxStyle}>
               {!journalOpen ? (
@@ -558,18 +646,61 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                   onClick={() => setJournalOpen(true)}
                   style={{ cursor:"pointer", transition:"all 0.2s" }}
                 >
-                  <div style={labelStyle}>journal</div>
+                  <div style={labelStyle}>{isArc ? `arc journal · pass ${arcHit} of ${arcDates.length}` : "journal"}</div>
                   <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", fontStyle:"italic", textAlign:"center" }}>
-                    what's present for you with this transit right now?
+                    {journalPromptData.prompt}
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div style={labelStyle}>journal</div>
+                  <div style={labelStyle}>{isArc ? `arc journal · pass ${arcHit} of ${arcDates.length}` : "journal"}</div>
+
+                  {/* Show previous arc entries if they exist */}
+                  {isArc && arcEntries.length > 0 && (
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:8, letterSpacing:"0.12em" }}>your previous arc entries</div>
+                      {arcEntries.map((entry, i) => (
+                        <div key={entry.id || i} style={{
+                          padding:"10px 14px", marginBottom:6,
+                          background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)",
+                          borderRadius:8,
+                        }}>
+                          <div style={{ fontSize:10, color:transit.color, marginBottom:4, letterSpacing:"0.1em" }}>
+                            pass {entry.arc_hit || "?"} · {new Date(entry.created_at).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" })}
+                          </div>
+                          <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.7 }}>
+                            {entry.body}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Show previous journal entries for moon transits after save */}
+                  {journalSaved && planetCategory === "moon" && previousEntries.length > 1 && (
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:8, letterSpacing:"0.12em" }}>previous entries for this transit</div>
+                      {previousEntries.filter(e => e.entry_type === "journal").slice(0, 3).map((entry, i) => (
+                        <div key={entry.id || i} style={{
+                          padding:"10px 14px", marginBottom:6,
+                          background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)",
+                          borderRadius:8,
+                        }}>
+                          <div style={{ fontSize:10, color:transit.color, marginBottom:4, letterSpacing:"0.1em" }}>
+                            {entry.vibe} · {new Date(entry.created_at).toLocaleDateString("en-US", { month:"short", day:"numeric" })}
+                          </div>
+                          <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.7 }}>
+                            {entry.body}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <textarea
                     value={journalText}
                     onChange={e => { setJournalText(e.target.value); setJournalSaved(false); }}
-                    placeholder="what are you noticing? what's shifting, surfacing, or asking for attention?"
+                    placeholder={journalPromptData.placeholder}
                     style={{
                       width:"100%", minHeight:100, padding:12, borderRadius:8,
                       background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.1)",
@@ -611,8 +742,15 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                               reflectingOnYear: "now",
                               body: journalText.trim(),
                               transitPositions: null,
+                              entryType: isArc ? "arc" : "journal",
+                              planetCategory,
+                              arcHit: isArc ? arcHit : null,
+                              arcDates: isArc ? arcDates : null,
                             });
                             setJournalSaved(true);
+                            // Reload entries so they show up
+                            loadReflections(user.id, transit.name).then(setPreviousEntries).catch(() => {});
+                            if (isArc) loadArcReflections(user.id, transit.name, arcDates).then(setArcEntries).catch(() => {});
                           } catch (e) {
                             console.error('[journal] save failed:', e);
                           }
@@ -742,6 +880,8 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                                   reflectingOnYear: reflectYear || null,
                                   body: reflectText.trim(),
                                   transitPositions: null,
+                                  entryType: "reflect",
+                                  planetCategory,
                                 });
                                 setReflectSaved(true);
                               } catch (e) {
