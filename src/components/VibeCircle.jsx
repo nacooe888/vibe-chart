@@ -386,7 +386,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
   const transitRef = useRef(null);
 
   const activePoints = mode==="plot" ? plotPoints : drawPoints;
-  const hasData = activePoints.length > 1;
+  const hasData = activePoints.length > 0;
   const canSave = hasData || note.trim().length > 0;
   const auraColor = getAuraColor(activePoints);
   const shapePath = mode==="plot" ? polygonPath(plotPoints) : smoothPath(drawPoints);
