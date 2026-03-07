@@ -122,9 +122,9 @@ Respond with ONLY valid JSON, no markdown:
   },
   "howToWork": "2-3 sentences. If multi-pass: how to work with each phase. If one-hit: how to work with it while it's here. Practical, specific, transit-aware.",
   "history": {
-    "lastOccurrence": "year or 'never in your lifetime' — when did this exact transit last happen in their chart?",
-    "nextOccurrence": "year — when will it happen again?",
-    "lastTimeframe": "e.g. '1996' or 'late 1980s' — for the chat prompt"
+    "pastOccurrences": ["array of actual years this exact transit-to-natal aspect last occurred, most recent first, max 5. Calculate from the planet's orbital period and the natal position. If it truly never happened in their lifetime, return empty array []"],
+    "neverInLifetime": "boolean — true ONLY if this transit has genuinely never occurred since their birth year",
+    "nextOccurrence": "year — when will it happen again?"
   }
 }`;
 }

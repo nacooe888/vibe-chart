@@ -308,8 +308,8 @@ export default function Onboarding({ onComplete }) {
                 fontWeight: 300,
               }}>
                 Vibe Chart uses the <span style={{ color: '#C49FFF' }}>sidereal zodiac</span> with
-                Fagan-Allen ayanamsa — aligned to where the stars actually are in the sky today,
-                not where they were 2,000 years ago.
+                Fagan-Allen ayanamsa — aligned to where the stars actually are in the sky today.
+                It might look different if you're used to western tropical astrology, which is based on the seasons of the earth rather than the stars in the sky.
               </div>
               <div style={{
                 fontSize: 14,

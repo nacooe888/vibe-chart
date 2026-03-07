@@ -382,6 +382,9 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
   const cacheKey = `${vibe}-${transit.name}`;
   const [data, setData] = useState(transitCache[cacheKey] || null);
   const [loading, setLoading] = useState(!transitCache[cacheKey]);
+  const [reflectOpen, setReflectOpen] = useState(false);
+  const [reflectText, setReflectText] = useState("");
+  const [reflectSaved, setReflectSaved] = useState(false);
 
   useEffect(() => {
     if (transitCache[cacheKey]) { setData(transitCache[cacheKey]); setLoading(false); return; }
@@ -397,7 +400,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
             reading: { rarity: r, insight: "" },
             arc: { type: "unknown", dates: [], currentPhase: "—" },
             howToWork: "",
-            history: { lastOccurrence: "—", nextOccurrence: "—", lastTimeframe: "" }
+            history: { pastOccurrences: [], neverInLifetime: false, nextOccurrence: "—" }
           };
           transitCache[cacheKey] = fallback;
           setData(fallback);
@@ -410,7 +413,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
           reading: { rarity: "This transit is asking something specific of you right now.", insight: "" },
           arc: { type: "—", dates: [], currentPhase: "—" },
           howToWork: "",
-          history: { lastOccurrence: "—", nextOccurrence: "—", lastTimeframe: "" }
+          history: { pastOccurrences: [], neverInLifetime: false, nextOccurrence: "—" }
         };
         transitCache[cacheKey] = fallback;
         setData(fallback);
@@ -524,42 +527,110 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
             </div>
           )}
 
-          {/* Box 5: Last Time / Next Time */}
-          {(data?.history?.lastOccurrence || data?.history?.nextOccurrence) && (
+          {/* Box 5: In Your Lifetime */}
+          {data?.history && (
             <div style={boxStyle}>
               <div style={labelStyle}>in your lifetime</div>
-              <div style={{ display:"flex", justifyContent:"space-around", textAlign:"center" }}>
-                <div>
-                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>last time</div>
-                  <div style={{ fontSize:16, color:transit.color }}>{data.history.lastOccurrence || "—"}</div>
+              {data.history.neverInLifetime || (!data.history.pastOccurrences?.length && !data.history.lastOccurrence) ? (
+                <div style={{ fontSize:15, color:"rgba(255,255,255,0.7)", textAlign:"center", lineHeight:1.8 }}>
+                  this transit has never happened in your lifetime
                 </div>
-                <div style={{ width:1, background:"rgba(255,255,255,0.1)" }} />
-                <div>
-                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>next time</div>
-                  <div style={{ fontSize:16, color:transit.color }}>{data.history.nextOccurrence || "—"}</div>
-                </div>
-              </div>
-
-              {/* Chat prompt */}
-              {data.history.lastTimeframe && onChat && (
-                <div
-                  onClick={() => onChat(`What was going on for you in ${data.history.lastTimeframe}?`)}
-                  style={{
-                    marginTop:16,
-                    padding:"12px 16px",
-                    background:"rgba(255,255,255,0.04)",
-                    border:"1px solid rgba(255,255,255,0.1)",
-                    borderRadius:10,
-                    cursor:"pointer",
-                    transition:"all 0.2s",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
-                  onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
-                >
-                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>reflect on this</div>
-                  <div style={{ fontSize:13, color:"rgba(255,255,255,0.8)", fontStyle:"italic" }}>
-                    "What was going on for you in {data.history.lastTimeframe}?"
+              ) : (
+                <>
+                  <div style={{ marginBottom:12 }}>
+                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:8 }}>past occurrences</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:8, justifyContent:"center" }}>
+                      {(data.history.pastOccurrences || [data.history.lastOccurrence].filter(Boolean)).map((year, i) => (
+                        <div key={i} style={{
+                          padding:"6px 14px", borderRadius:99,
+                          background:`${transit.color}18`, border:`1px solid ${transit.color}33`,
+                          fontSize:14, color:transit.color, fontWeight:400,
+                        }}>{year}</div>
+                      ))}
+                    </div>
                   </div>
+                  {data.history.nextOccurrence && (
+                    <div style={{ textAlign:"center", fontSize:13, color:"rgba(255,255,255,0.5)" }}>
+                      next: <span style={{ color:transit.color }}>{data.history.nextOccurrence}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Reflect inline */}
+              {!data.history.neverInLifetime && (data.history.pastOccurrences?.length > 0 || data.history.lastOccurrence) && (
+                <div style={{ marginTop:16 }}>
+                  {!reflectOpen ? (
+                    <div
+                      onClick={() => setReflectOpen(true)}
+                      style={{
+                        padding:"12px 16px",
+                        background:"rgba(255,255,255,0.04)",
+                        border:"1px solid rgba(255,255,255,0.1)",
+                        borderRadius:10,
+                        cursor:"pointer",
+                        transition:"all 0.2s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
+                    >
+                      <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>reflect on this</div>
+                      <div style={{ fontSize:13, color:"rgba(255,255,255,0.8)", fontStyle:"italic" }}>
+                        what do you remember from {(data.history.pastOccurrences || [data.history.lastOccurrence])[0]}?
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      padding:"14px 16px",
+                      background:"rgba(255,255,255,0.04)",
+                      border:`1px solid ${transit.color}33`,
+                      borderRadius:12,
+                    }}>
+                      <div style={{ fontSize:11, color:transit.color, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:10 }}>
+                        reflect
+                      </div>
+                      <textarea
+                        value={reflectText}
+                        onChange={e => { setReflectText(e.target.value); setReflectSaved(false); }}
+                        placeholder={`what do you remember from ${(data.history.pastOccurrences || [data.history.lastOccurrence])[0]}? what was happening in your life?`}
+                        style={{
+                          width:"100%", minHeight:100, padding:12, borderRadius:8,
+                          background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.1)",
+                          color:"rgba(255,255,255,0.85)", fontFamily:"'Cormorant Garamond',serif",
+                          fontSize:14, lineHeight:1.7, resize:"vertical",
+                          outline:"none",
+                        }}
+                        onFocus={e => e.target.style.borderColor = `${transit.color}55`}
+                        onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                        autoFocus
+                      />
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
+                        <button
+                          onClick={() => setReflectOpen(false)}
+                          style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
+                        >close</button>
+                        {reflectSaved ? (
+                          <span style={{ fontSize:12, color:transit.color, letterSpacing:"0.1em" }}>saved</span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (reflectText.trim()) {
+                                const key = `reflect_${cacheKey}`;
+                                try { localStorage.setItem(key, JSON.stringify({ text: reflectText, date: new Date().toISOString(), transit: transit.name, vibe })); } catch(e) {}
+                                setReflectSaved(true);
+                              }
+                            }}
+                            style={{
+                              background:`${transit.color}22`, border:`1px solid ${transit.color}44`,
+                              borderRadius:8, padding:"6px 16px",
+                              color:transit.color, fontFamily:"'Cormorant Garamond',serif",
+                              fontSize:12, letterSpacing:"0.1em", cursor:"pointer",
+                            }}
+                          >save</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -740,6 +811,8 @@ function getSkySubtitle(transitChart) {
 }
 
 // ─── Report Screen ───
+const shortReportCache = {};
+
 function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitLoading }) {
   const [selectedVibe, setSelectedVibe] = useState(null);
   const [report, setReport] = useState(null);
@@ -763,11 +836,12 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitL
 
   useEffect(() => {
     if (!selectedVibe || transitLoading) { setReport(null); return; }
+    if (shortReportCache[selectedVibe]) { setReport(shortReportCache[selectedVibe]); return; }
     setReport(null);
     setLoading(true);
     const vibeData = getVibeData(selectedVibe, latestVibe);
     generateShortReport(selectedVibe, vibeData, skyContext)
-      .then(r => { setReport(r); setLoading(false); })
+      .then(r => { shortReportCache[selectedVibe] = r; setReport(r); setLoading(false); })
       .catch(() => setLoading(false));
   }, [selectedVibe, transitLoading, hasLiveData]);
 
@@ -1109,7 +1183,7 @@ export default function EnergyReport({ onOpenChat }) {
     const hasNatal = !!natalChart;
     const shouldClear = (isLive && !wasLiveRef.current) || (hasNatal && !hadNatalRef.current);
     if (shouldClear) {
-      [deepReportCache, transitCache, ritualCache, transitRitualCache].forEach(c =>
+      [shortReportCache, deepReportCache, transitCache, ritualCache, transitRitualCache].forEach(c =>
         Object.keys(c).forEach(k => delete c[k])
       );
     }
