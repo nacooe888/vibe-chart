@@ -85,7 +85,7 @@ Respond with ONLY a valid JSON array, no markdown, no wrapper object:
   {
     "glyph": "planet glyph(s) e.g. ♄♆ or ☽♃",
     "name": "transit name e.g. Neptune trine natal Sun",
-    "color": "hex color fitting the planetary energy",
+    "color": "LIGHT pastel hex color readable on dark background. Use these: Pluto #C49FFF, Jupiter #FFD090, Saturn #D0B880, Neptune #A08AFF, Mars #FF9090, Venus #FFB0CC, Sun #FFD47F, Moon #E0E0FF, Mercury #A8C8FF, Uranus #80FFE8",
     "line": "one sentence — what this specific transit means given the ${vibe} transmission"
   }
 ]
