@@ -388,6 +388,10 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
   const [reflectText, setReflectText] = useState("");
   const [reflectSaved, setReflectSaved] = useState(false);
   const [reflectSaving, setReflectSaving] = useState(false);
+  const [journalOpen, setJournalOpen] = useState(false);
+  const [journalText, setJournalText] = useState("");
+  const [journalSaved, setJournalSaved] = useState(false);
+  const [journalSaving, setJournalSaving] = useState(false);
 
   useEffect(() => {
     if (transitCache[cacheKey]) { setData(transitCache[cacheKey]); setLoading(false); return; }
@@ -543,6 +547,89 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
               <div style={{ fontSize:15, lineHeight:1.9, color:"rgba(255,255,255,0.85)", fontWeight:300 }}>
                 {data.howToWork}
               </div>
+            </div>
+          )}
+
+          {/* Journal: what's present now */}
+          {data && !loading && (
+            <div style={boxStyle}>
+              {!journalOpen ? (
+                <div
+                  onClick={() => setJournalOpen(true)}
+                  style={{ cursor:"pointer", transition:"all 0.2s" }}
+                >
+                  <div style={labelStyle}>journal</div>
+                  <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", fontStyle:"italic", textAlign:"center" }}>
+                    what's present for you with this transit right now?
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={labelStyle}>journal</div>
+                  <textarea
+                    value={journalText}
+                    onChange={e => { setJournalText(e.target.value); setJournalSaved(false); }}
+                    placeholder="what are you noticing? what's shifting, surfacing, or asking for attention?"
+                    style={{
+                      width:"100%", minHeight:100, padding:12, borderRadius:8,
+                      background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.1)",
+                      color:"rgba(255,255,255,0.85)", fontFamily:"'Cormorant Garamond',serif",
+                      fontSize:14, lineHeight:1.7, resize:"vertical", outline:"none",
+                    }}
+                    onFocus={e => e.target.style.borderColor = `${transit.color}55`}
+                    onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                    autoFocus
+                  />
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
+                    <button
+                      onClick={() => setJournalOpen(false)}
+                      style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
+                    >close</button>
+                    {journalSaved ? (
+                      <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                        <span style={{ fontSize:12, color:transit.color, letterSpacing:"0.1em" }}>logged</span>
+                        <button
+                          onClick={() => { setJournalText(""); setJournalSaved(false); }}
+                          style={{
+                            background:"none", border:`1px solid ${transit.color}44`,
+                            borderRadius:8, padding:"4px 12px",
+                            color:transit.color, fontFamily:"'Cormorant Garamond',serif",
+                            fontSize:11, letterSpacing:"0.08em", cursor:"pointer",
+                          }}
+                        >add another</button>
+                      </div>
+                    ) : (
+                      <button
+                        disabled={journalSaving}
+                        onClick={async () => {
+                          if (!journalText.trim() || !user?.id) return;
+                          setJournalSaving(true);
+                          try {
+                            await saveReflection(user.id, {
+                              transitName: transit.name,
+                              vibe,
+                              reflectingOnYear: "now",
+                              body: journalText.trim(),
+                              transitPositions: null,
+                            });
+                            setJournalSaved(true);
+                          } catch (e) {
+                            console.error('[journal] save failed:', e);
+                          }
+                          setJournalSaving(false);
+                        }}
+                        style={{
+                          background:`${transit.color}22`, border:`1px solid ${transit.color}44`,
+                          borderRadius:8, padding:"6px 16px",
+                          color:transit.color, fontFamily:"'Cormorant Garamond',serif",
+                          fontSize:12, letterSpacing:"0.1em", cursor:"pointer",
+                          opacity: journalSaving ? 0.5 : 1,
+                        }}
+                      >{journalSaving ? "saving..." : "save"}</button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
