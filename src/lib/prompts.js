@@ -104,7 +104,7 @@ The transit to explore: ${transit.name}
 
 ${skyContext}
 
-For history.pastOccurrences: calculate actual years this exact transit-to-natal aspect last occurred based on the transiting planet's orbital period and the natal position. Most recent first, max 5. If it truly never happened in their lifetime, return [] and set neverInLifetime to true.
+For history.pastOccurrences: calculate actual years this exact transit-to-natal aspect last occurred based on the transiting planet's orbital period and the natal position. Most recent first, max 5. Include occurrences before their birth if none happened in their lifetime — always show when the planets were last in this configuration.
 
 Respond with ONLY valid JSON, no markdown. Keep it compact:
 {
