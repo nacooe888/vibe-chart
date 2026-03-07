@@ -598,21 +598,31 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                 {data.arc.dates.map((date, i) => {
                   const isCurrent = data.arc.currentPhase?.toLowerCase().includes(date.toLowerCase()) ||
                     (i === Math.floor(data.arc.dates.length / 2) && data.arc.currentPhase?.includes("now"));
+                  const hitNum = i + 1;
+                  const isSelected = journalOpen === hitNum;
                   return (
                     <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
                       <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
-                        <div style={{
-                          padding: "6px 14px",
-                          borderRadius: 99,
-                          background: isCurrent ? `${transit.color}30` : "rgba(255,255,255,0.05)",
-                          border: isCurrent ? `1px solid ${transit.color}` : "1px solid rgba(255,255,255,0.1)",
-                          fontSize: 12,
-                          color: isCurrent ? transit.color : "rgba(255,255,255,0.6)",
-                          fontWeight: isCurrent ? 500 : 400,
-                        }}>
+                        <div
+                          onClick={() => {
+                            if (isSelected) { setJournalOpen(false); }
+                            else { setJournalOpen(hitNum); setJournalText(""); setJournalSaved(false); }
+                          }}
+                          style={{
+                            padding: "6px 14px",
+                            borderRadius: 99,
+                            background: isSelected ? `${transit.color}44` : isCurrent ? `${transit.color}30` : "rgba(255,255,255,0.05)",
+                            border: isSelected ? `1px solid ${transit.color}` : isCurrent ? `1px solid ${transit.color}` : "1px solid rgba(255,255,255,0.1)",
+                            fontSize: 12,
+                            color: isSelected || isCurrent ? transit.color : "rgba(255,255,255,0.6)",
+                            fontWeight: isSelected || isCurrent ? 500 : 400,
+                            cursor: isArc ? "pointer" : "default",
+                            transition: "all 0.2s",
+                          }}
+                        >
                           {date}
                         </div>
-                        {isCurrent && data.arc.currentPhase && (
+                        {isCurrent && data.arc.currentPhase && !isSelected && (
                           <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginTop:6, fontStyle:"italic", textAlign:"center", maxWidth:100 }}>
                             {data.arc.currentPhase}
                           </div>
@@ -625,114 +635,136 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                   );
                 })}
               </div>
-
-              {/* Arc journal prompt — embedded in the arc box */}
-              {isArc && (
-                <div style={{ marginTop:16, borderTop:"1px solid rgba(255,255,255,0.06)", paddingTop:14 }}>
-                  {!journalOpen ? (
-                    <div
-                      onClick={() => setJournalOpen(true)}
-                      style={{ cursor:"pointer", padding:"8px 0" }}
-                    >
-                      <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", fontStyle:"italic", textAlign:"center" }}>
-                        {journalPromptData.prompt}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      {/* Show previous arc entries */}
-                      {arcEntries.length > 0 && (
-                        <div style={{ marginBottom:14 }}>
-                          <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:8, letterSpacing:"0.12em" }}>your previous arc entries</div>
-                          {arcEntries.map((entry, i) => (
-                            <div key={entry.id || i} style={{
-                              padding:"10px 14px", marginBottom:6,
-                              background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)",
-                              borderRadius:8,
-                            }}>
-                              <div style={{ fontSize:10, color:transit.color, marginBottom:4, letterSpacing:"0.1em" }}>
-                                pass {entry.arc_hit || "?"} · {new Date(entry.created_at).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" })}
-                              </div>
-                              <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.7 }}>
-                                {entry.body}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <textarea
-                        value={journalText}
-                        onChange={e => { setJournalText(e.target.value); setJournalSaved(false); }}
-                        placeholder={journalPromptData.placeholder}
-                        style={{
-                          width:"100%", minHeight:100, padding:12, borderRadius:8,
-                          background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.1)",
-                          color:"rgba(255,255,255,0.85)", fontFamily:"'Cormorant Garamond',serif",
-                          fontSize:14, lineHeight:1.7, resize:"vertical", outline:"none",
-                        }}
-                        onFocus={e => e.target.style.borderColor = `${transit.color}55`}
-                        onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
-                        autoFocus
-                      />
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
-                        <button
-                          onClick={() => setJournalOpen(false)}
-                          style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
-                        >close</button>
-                        {journalSaved ? (
-                          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                            <span style={{ fontSize:12, color:transit.color, letterSpacing:"0.1em" }}>logged</span>
-                            <button
-                              onClick={() => { setJournalText(""); setJournalSaved(false); }}
-                              style={{
-                                background:"none", border:`1px solid ${transit.color}44`,
-                                borderRadius:8, padding:"4px 12px",
-                                color:transit.color, fontFamily:"'Cormorant Garamond',serif",
-                                fontSize:11, letterSpacing:"0.08em", cursor:"pointer",
-                              }}
-                            >add another</button>
-                          </div>
-                        ) : (
-                          <button
-                            disabled={journalSaving}
-                            onClick={async () => {
-                              if (!journalText.trim() || !user?.id) return;
-                              setJournalSaving(true);
-                              try {
-                                await saveReflection(user.id, {
-                                  transitName: transit.name,
-                                  vibe,
-                                  reflectingOnYear: "now",
-                                  body: journalText.trim(),
-                                  transitPositions: null,
-                                  entryType: "arc",
-                                  planetCategory,
-                                  arcHit,
-                                  arcDates,
-                                });
-                                setJournalSaved(true);
-                                loadReflections(user.id, transit.name).then(setPreviousEntries).catch(() => {});
-                                loadArcReflections(user.id, transit.name, arcDates).then(setArcEntries).catch(() => {});
-                              } catch (e) {
-                                console.error('[arc journal] save failed:', e);
-                              }
-                              setJournalSaving(false);
-                            }}
-                            style={{
-                              background:`${transit.color}22`, border:`1px solid ${transit.color}44`,
-                              borderRadius:8, padding:"6px 16px",
-                              color:transit.color, fontFamily:"'Cormorant Garamond',serif",
-                              fontSize:12, letterSpacing:"0.1em", cursor:"pointer",
-                              opacity: journalSaving ? 0.5 : 1,
-                            }}
-                          >{journalSaving ? "saving..." : "save"}</button>
-                        )}
-                      </div>
-                    </div>
-                  )}
+              {isArc && !journalOpen && (
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", textAlign:"center", marginTop:12, fontStyle:"italic" }}>
+                  tap a date to journal
                 </div>
               )}
+
+              {/* Arc journal — opens for whichever date pill was tapped */}
+              {isArc && journalOpen && (() => {
+                const selectedHit = journalOpen;
+                const selectedDate = arcDates[selectedHit - 1];
+                const isPast = selectedHit < arcHit;
+                const isFuture = selectedHit > arcHit;
+                const isPresent = selectedHit === arcHit;
+
+                const arcPrompt = isPast
+                  ? `what happened during the ${selectedDate} pass? what do you remember?`
+                  : isFuture
+                  ? `the ${selectedDate} pass is ahead — what do you want to release or manifest?`
+                  : "what are you feeling right now in this pass?";
+
+                const arcPlaceholder = isPast
+                  ? `reflect on ${selectedDate} — what was surfacing, shifting, or completing?`
+                  : isFuture
+                  ? `set an intention for the ${selectedDate} pass — what do you want to carry forward or let go?`
+                  : "what are you noticing? what's shifting, surfacing, or asking for attention?";
+
+                // Find previous entries for this specific hit
+                const hitEntries = arcEntries.filter(e => e.arc_hit === selectedHit);
+
+                return (
+                  <div style={{ marginTop:14, borderTop:"1px solid rgba(255,255,255,0.06)", paddingTop:14 }}>
+                    <div style={{ fontSize:11, color:transit.color, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:8 }}>
+                      pass {selectedHit} · {selectedDate}
+                    </div>
+
+                    {/* Show previous entries for this hit */}
+                    {hitEntries.length > 0 && (
+                      <div style={{ marginBottom:12 }}>
+                        {hitEntries.map((entry, i) => (
+                          <div key={entry.id || i} style={{
+                            padding:"10px 14px", marginBottom:6,
+                            background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)",
+                            borderRadius:8,
+                          }}>
+                            <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:4, letterSpacing:"0.1em" }}>
+                              {entry.vibe} · {new Date(entry.created_at).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" })}
+                            </div>
+                            <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.7 }}>
+                              {entry.body}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ fontSize:14, color:"rgba(255,255,255,0.6)", fontStyle:"italic", marginBottom:10 }}>
+                      {arcPrompt}
+                    </div>
+
+                    <textarea
+                      value={journalText}
+                      onChange={e => { setJournalText(e.target.value); setJournalSaved(false); }}
+                      placeholder={arcPlaceholder}
+                      style={{
+                        width:"100%", minHeight:100, padding:12, borderRadius:8,
+                        background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.1)",
+                        color:"rgba(255,255,255,0.85)", fontFamily:"'Cormorant Garamond',serif",
+                        fontSize:14, lineHeight:1.7, resize:"vertical", outline:"none",
+                      }}
+                      onFocus={e => e.target.style.borderColor = `${transit.color}55`}
+                      onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                      autoFocus
+                    />
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
+                      <button
+                        onClick={() => setJournalOpen(false)}
+                        style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
+                      >close</button>
+                      {journalSaved ? (
+                        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                          <span style={{ fontSize:12, color:transit.color, letterSpacing:"0.1em" }}>logged</span>
+                          <button
+                            onClick={() => { setJournalText(""); setJournalSaved(false); }}
+                            style={{
+                              background:"none", border:`1px solid ${transit.color}44`,
+                              borderRadius:8, padding:"4px 12px",
+                              color:transit.color, fontFamily:"'Cormorant Garamond',serif",
+                              fontSize:11, letterSpacing:"0.08em", cursor:"pointer",
+                            }}
+                          >add another</button>
+                        </div>
+                      ) : (
+                        <button
+                          disabled={journalSaving}
+                          onClick={async () => {
+                            if (!journalText.trim() || !user?.id) return;
+                            setJournalSaving(true);
+                            try {
+                              await saveReflection(user.id, {
+                                transitName: transit.name,
+                                vibe,
+                                reflectingOnYear: isPast ? selectedDate : isFuture ? `future:${selectedDate}` : "now",
+                                body: journalText.trim(),
+                                transitPositions: null,
+                                entryType: "arc",
+                                planetCategory,
+                                arcHit: selectedHit,
+                                arcDates,
+                              });
+                              setJournalSaved(true);
+                              loadReflections(user.id, transit.name).then(setPreviousEntries).catch(() => {});
+                              loadArcReflections(user.id, transit.name, arcDates).then(setArcEntries).catch(() => {});
+                            } catch (e) {
+                              console.error('[arc journal] save failed:', e);
+                            }
+                            setJournalSaving(false);
+                          }}
+                          style={{
+                            background:`${transit.color}22`, border:`1px solid ${transit.color}44`,
+                            borderRadius:8, padding:"6px 16px",
+                            color:transit.color, fontFamily:"'Cormorant Garamond',serif",
+                            fontSize:12, letterSpacing:"0.1em", cursor:"pointer",
+                            opacity: journalSaving ? 0.5 : 1,
+                          }}
+                        >{journalSaving ? "saving..." : "save"}</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
