@@ -266,7 +266,7 @@ async function generateTransitDeep(vibe, vibeData, transit, skyContext) {
 
   const res = await claudeFetch({
     model:"claude-sonnet-4-6",
-    max_tokens:1200,
+    max_tokens:1600,
     messages:[{role:"user",content:prompt}],
   });
   const data = await res.json();

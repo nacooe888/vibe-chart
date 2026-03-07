@@ -104,6 +104,8 @@ The transit to explore: ${transit.name}
 
 ${skyContext}
 
+For history.pastOccurrences: calculate actual years this exact transit-to-natal aspect last occurred based on the transiting planet's orbital period and the natal position. Most recent first, max 5. If it truly never happened in their lifetime, return [] and set neverInLifetime to true.
+
 Respond with ONLY valid JSON, no markdown:
 {
   "movement": {
@@ -122,9 +124,9 @@ Respond with ONLY valid JSON, no markdown:
   },
   "howToWork": "2-3 sentences. If multi-pass: how to work with each phase. If one-hit: how to work with it while it's here. Practical, specific, transit-aware.",
   "history": {
-    "pastOccurrences": ["array of actual years this exact transit-to-natal aspect last occurred, most recent first, max 5. Calculate from the planet's orbital period and the natal position. If it truly never happened in their lifetime, return empty array []"],
-    "neverInLifetime": "boolean — true ONLY if this transit has genuinely never occurred since their birth year",
-    "nextOccurrence": "year — when will it happen again?"
+    "pastOccurrences": ["2019", "2012", "2005"],
+    "neverInLifetime": false,
+    "nextOccurrence": "2033"
   }
 }`;
 }
