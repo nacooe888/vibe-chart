@@ -309,7 +309,6 @@ export default function Onboarding({ onComplete }) {
               }}>
                 Vibe Chart uses the <span style={{ color: '#C49FFF' }}>sidereal zodiac</span> with
                 Fagan-Allen ayanamsa — aligned to where the stars actually are in the sky today.
-                It might look different if you're used to western tropical astrology, which is based on the seasons of the earth rather than the stars in the sky.
               </div>
               <div style={{
                 fontSize: 14,
@@ -317,7 +316,7 @@ export default function Onboarding({ onComplete }) {
                 marginTop: 20,
                 fontStyle: 'italic',
               }}>
-                Your signs may shift. Your chart becomes more precise.
+                It might look different if you're used to western tropical astrology, which is based on the seasons of the earth rather than the stars in the sky.
               </div>
               <div style={{
                 fontSize: 12,
