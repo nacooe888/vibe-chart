@@ -8,7 +8,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, resetPassword } = useAuth()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -17,7 +17,10 @@ export default function Auth() {
     setLoading(true)
 
     try {
-      if (mode === 'signin') {
+      if (mode === 'forgot') {
+        await resetPassword(email)
+        setMessage('check your email for a reset link')
+      } else if (mode === 'signin') {
         await signIn(email, password)
       } else {
         await signUp(email, password)
@@ -98,41 +101,53 @@ export default function Auth() {
           borderRadius: 20,
           padding: '32px 28px',
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: 28,
-          }}>
+          {mode !== 'forgot' ? (
             <div style={{
               display: 'flex',
-              background: 'rgba(255,255,255,0.04)',
-              borderRadius: 99,
-              padding: 3,
-              border: '1px solid rgba(255,255,255,0.07)',
+              justifyContent: 'center',
+              marginBottom: 28,
             }}>
-              {['signin', 'signup'].map(m => (
-                <button
-                  key={m}
-                  onClick={() => { setMode(m); setError(null); setMessage(null); }}
-                  style={{
-                    padding: '8px 24px',
-                    borderRadius: 99,
-                    border: 'none',
-                    background: mode === m ? 'rgba(196,159,255,0.25)' : 'transparent',
-                    color: mode === m ? 'white' : 'rgba(255,255,255,0.32)',
-                    fontFamily: "'Cormorant Garamond', serif",
-                    fontSize: 13,
-                    letterSpacing: '0.15em',
-                    textTransform: 'uppercase',
-                    cursor: 'pointer',
-                    transition: 'all 0.25s',
-                  }}
-                >
-                  {m === 'signin' ? 'enter' : 'join'}
-                </button>
-              ))}
+              <div style={{
+                display: 'flex',
+                background: 'rgba(255,255,255,0.04)',
+                borderRadius: 99,
+                padding: 3,
+                border: '1px solid rgba(255,255,255,0.07)',
+              }}>
+                {['signin', 'signup'].map(m => (
+                  <button
+                    key={m}
+                    onClick={() => { setMode(m); setError(null); setMessage(null); }}
+                    style={{
+                      padding: '8px 24px',
+                      borderRadius: 99,
+                      border: 'none',
+                      background: mode === m ? 'rgba(196,159,255,0.25)' : 'transparent',
+                      color: mode === m ? 'white' : 'rgba(255,255,255,0.32)',
+                      fontFamily: "'Cormorant Garamond', serif",
+                      fontSize: 13,
+                      letterSpacing: '0.15em',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s',
+                    }}
+                  >
+                    {m === 'signin' ? 'enter' : 'join'}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{
+              textAlign: 'center',
+              marginBottom: 28,
+              fontSize: 14,
+              color: 'rgba(255,255,255,0.5)',
+              fontStyle: 'italic',
+            }}>
+              reset your password
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <input
@@ -143,15 +158,17 @@ export default function Auth() {
               required
               style={inputStyle}
             />
-            <input
-              type="password"
-              placeholder="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              minLength={6}
-              style={inputStyle}
-            />
+            {mode !== 'forgot' && (
+              <input
+                type="password"
+                placeholder="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={6}
+                style={inputStyle}
+              />
+            )}
 
             {error && (
               <div style={{
@@ -178,8 +195,48 @@ export default function Auth() {
             )}
 
             <button type="submit" disabled={loading} style={btnStyle}>
-              {loading ? '...' : mode === 'signin' ? 'enter the map' : 'create account'}
+              {loading ? '...' : mode === 'forgot' ? 'send reset link' : mode === 'signin' ? 'enter the map' : 'create account'}
             </button>
+
+            {mode === 'signin' && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('forgot'); setError(null); setMessage(null); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.35)',
+                    fontSize: 12,
+                    fontStyle: 'italic',
+                    cursor: 'pointer',
+                    fontFamily: "'Cormorant Garamond', serif",
+                  }}
+                >
+                  forgot password?
+                </button>
+              </div>
+            )}
+
+            {mode === 'forgot' && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('signin'); setError(null); setMessage(null); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.35)',
+                    fontSize: 12,
+                    fontStyle: 'italic',
+                    cursor: 'pointer',
+                    fontFamily: "'Cormorant Garamond', serif",
+                  }}
+                >
+                  ← back to sign in
+                </button>
+              </div>
+            )}
           </form>
         </div>
 

@@ -4,13 +4,15 @@ import { loadProfile, saveProfile } from '../lib/profileStorage'
 import { loadChart, saveChart } from '../lib/chartStorage'
 
 export default function ProfileScreen({ onClose }) {
-  const { user, signOut } = useAuth()
+  const { user, signOut, deleteAccount } = useAuth()
   const [profile, setProfile] = useState(null)
   const [natalChart, setNatalChart] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Edit form state
   const [name, setName] = useState('')
@@ -79,6 +81,18 @@ export default function ProfileScreen({ onClose }) {
       setError(err.message || 'Failed to save')
     }
     setSaving(false)
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await deleteAccount()
+    } catch (err) {
+      setError(err.message || 'Failed to delete account')
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
   }
 
   const inputStyle = {
@@ -577,6 +591,71 @@ export default function ProfileScreen({ onClose }) {
               >
                 sign out
               </button>
+            </div>
+
+            {/* Delete account */}
+            <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.25)',
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: 11,
+                    fontStyle: 'italic',
+                    cursor: 'pointer',
+                    padding: '8px 16px',
+                  }}
+                >
+                  delete my account
+                </button>
+              ) : (
+                <div style={{ animation: 'fadeIn 0.3s ease' }}>
+                  <div style={{ fontSize: 13, color: 'rgba(255,127,155,0.8)', marginBottom: 16, fontStyle: 'italic' }}>
+                    this will permanently delete your account and all your data
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={deleting}
+                      style={{
+                        background: 'none',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: 99,
+                        color: 'rgba(255,255,255,0.5)',
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: 11,
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        cursor: deleting ? 'wait' : 'pointer',
+                        padding: '8px 20px',
+                      }}
+                    >
+                      cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteAccount}
+                      disabled={deleting}
+                      style={{
+                        background: 'rgba(255,127,155,0.15)',
+                        border: '1px solid rgba(255,127,155,0.4)',
+                        borderRadius: 99,
+                        color: '#FF7F9B',
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: 11,
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        cursor: deleting ? 'wait' : 'pointer',
+                        padding: '8px 20px',
+                      }}
+                    >
+                      {deleting ? '...' : 'yes, delete'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

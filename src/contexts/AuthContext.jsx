@@ -49,12 +49,28 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  async function resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    if (error) throw error
+  }
+
+  async function deleteAccount() {
+    // Delete user data first (RLS policies will cascade, but explicit is safer)
+    const { error } = await supabase.rpc('delete_user_account')
+    if (error) throw error
+    await signOut()
+  }
+
   const value = {
     user,
     loading,
     signUp,
     signIn,
     signOut,
+    resetPassword,
+    deleteAccount,
   }
 
   return (
