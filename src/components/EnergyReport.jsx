@@ -502,35 +502,37 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
           {data?.arc?.dates?.length > 0 && (
             <div style={boxStyle}>
               <div style={labelStyle}>planetary arc</div>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"center", gap:8, flexWrap:"wrap" }}>
                 {data.arc.dates.map((date, i) => {
                   const isCurrent = data.arc.currentPhase?.toLowerCase().includes(date.toLowerCase()) ||
                     (i === Math.floor(data.arc.dates.length / 2) && data.arc.currentPhase?.includes("now"));
                   return (
-                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <div style={{
-                        padding: "6px 14px",
-                        borderRadius: 99,
-                        background: isCurrent ? `${transit.color}30` : "rgba(255,255,255,0.05)",
-                        border: isCurrent ? `1px solid ${transit.color}` : "1px solid rgba(255,255,255,0.1)",
-                        fontSize: 12,
-                        color: isCurrent ? transit.color : "rgba(255,255,255,0.6)",
-                        fontWeight: isCurrent ? 500 : 400,
-                      }}>
-                        {date}
+                    <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
+                        <div style={{
+                          padding: "6px 14px",
+                          borderRadius: 99,
+                          background: isCurrent ? `${transit.color}30` : "rgba(255,255,255,0.05)",
+                          border: isCurrent ? `1px solid ${transit.color}` : "1px solid rgba(255,255,255,0.1)",
+                          fontSize: 12,
+                          color: isCurrent ? transit.color : "rgba(255,255,255,0.6)",
+                          fontWeight: isCurrent ? 500 : 400,
+                        }}>
+                          {date}
+                        </div>
+                        {isCurrent && data.arc.currentPhase && (
+                          <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginTop:6, fontStyle:"italic", textAlign:"center", maxWidth:100 }}>
+                            {data.arc.currentPhase}
+                          </div>
+                        )}
                       </div>
                       {i < data.arc.dates.length - 1 && (
-                        <span style={{ color:"rgba(255,255,255,0.2)", fontSize:10 }}>→</span>
+                        <span style={{ color:"rgba(255,255,255,0.2)", fontSize:10, marginTop:8 }}>→</span>
                       )}
                     </div>
                   );
                 })}
               </div>
-              {data.arc.currentPhase && (
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textAlign:"center", marginTop:10, fontStyle:"italic" }}>
-                  {data.arc.currentPhase}
-                </div>
-              )}
             </div>
           )}
 
