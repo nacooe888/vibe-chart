@@ -155,6 +155,55 @@ create policy "Users can delete own profile"
   using (auth.uid() = user_id);
 
 -- ─────────────────────────────────────────────
+-- Reflections Table (transit cycle journal)
+-- ─────────────────────────────────────────────
+
+create table if not exists public.reflections (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+
+  -- What transit they're reflecting on
+  transit_name text not null,          -- e.g. "Neptune trine natal Ascendant"
+  transit_planet text,                 -- e.g. "Neptune" (for cycle queries)
+  natal_planet text,                   -- e.g. "Ascendant" (for cycle queries)
+  aspect_type text,                    -- e.g. "trine", "conjunct", "square"
+
+  -- Context at time of reflection
+  vibe text,                           -- what vibe they were transmitting
+  reflecting_on_year text,             -- the past occurrence year they chose
+
+  -- The reflection itself
+  body text not null,
+
+  -- Sky snapshot for future cycle analysis
+  transit_positions jsonb
+);
+
+create index if not exists reflections_user_id_idx on public.reflections(user_id);
+create index if not exists reflections_transit_name_idx on public.reflections(transit_name);
+create index if not exists reflections_transit_planet_idx on public.reflections(transit_planet);
+create index if not exists reflections_created_at_idx on public.reflections(created_at);
+
+alter table public.reflections enable row level security;
+
+create policy "Users can view own reflections"
+  on public.reflections for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own reflections"
+  on public.reflections for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own reflections"
+  on public.reflections for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own reflections"
+  on public.reflections for delete
+  using (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────
 -- API Usage Table (rate limiting — 50 calls/day)
 -- ─────────────────────────────────────────────
 

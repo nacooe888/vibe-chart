@@ -6,6 +6,7 @@ import { loadProfile } from "../lib/profileStorage";
 import { supabase } from "../lib/supabase";
 import { capture } from "../lib/analytics";
 import { shortReportPrompt, deepParagraphPrompt, deepTransitsPrompt, transitDeepPrompt, transitRitualPrompt, ritualPrompt } from "../lib/prompts";
+import { saveReflection } from "../lib/reflectionStorage";
 
 // Authenticated fetch wrapper — adds Supabase JWT so the server can rate-limit
 async function claudeFetch(body) {
@@ -378,6 +379,7 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
 const transitCache = {};
 
 function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat, skyContext, latestVibe }) {
+  const { user } = useAuth();
   const vibeData = getVibeData(vibe, latestVibe);
   const cacheKey = `${vibe}-${transit.name}`;
   const [data, setData] = useState(transitCache[cacheKey] || null);
@@ -385,6 +387,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
   const [reflectOpen, setReflectOpen] = useState(false);
   const [reflectText, setReflectText] = useState("");
   const [reflectSaved, setReflectSaved] = useState(false);
+  const [reflectSaving, setReflectSaving] = useState(false);
 
   useEffect(() => {
     if (transitCache[cacheKey]) { setData(transitCache[cacheKey]); setLoading(false); return; }
@@ -627,20 +630,33 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                           <span style={{ fontSize:12, color:transit.color, letterSpacing:"0.1em" }}>saved</span>
                         ) : (
                           <button
-                            onClick={() => {
-                              if (reflectText.trim()) {
-                                const key = `reflect_${cacheKey}`;
-                                try { localStorage.setItem(key, JSON.stringify({ text: reflectText, date: new Date().toISOString(), transit: transit.name, vibe })); } catch(e) {}
+                            disabled={reflectSaving}
+                            onClick={async () => {
+                              if (!reflectText.trim() || !user?.id) return;
+                              setReflectSaving(true);
+                              try {
+                                const reflectYear = (data.history.pastOccurrences || [data.history.lastOccurrence])[0];
+                                await saveReflection(user.id, {
+                                  transitName: transit.name,
+                                  vibe,
+                                  reflectingOnYear: reflectYear || null,
+                                  body: reflectText.trim(),
+                                  transitPositions: null,
+                                });
                                 setReflectSaved(true);
+                              } catch (e) {
+                                console.error('[reflection] save failed:', e);
                               }
+                              setReflectSaving(false);
                             }}
                             style={{
                               background:`${transit.color}22`, border:`1px solid ${transit.color}44`,
                               borderRadius:8, padding:"6px 16px",
                               color:transit.color, fontFamily:"'Cormorant Garamond',serif",
                               fontSize:12, letterSpacing:"0.1em", cursor:"pointer",
+                              opacity: reflectSaving ? 0.5 : 1,
                             }}
-                          >save</button>
+                          >{reflectSaving ? "saving..." : "save"}</button>
                         )}
                       </div>
                     </div>
