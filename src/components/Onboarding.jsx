@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { saveProfile } from '../lib/profileStorage'
 import { saveChart } from '../lib/chartStorage'
+import { capture } from '../lib/analytics'
 
 const STEPS = ['welcome', 'birth', 'sidereal', 'experience', 'depth', 'transits', 'tutorial']
 
@@ -116,6 +117,15 @@ export default function Onboarding({ onComplete }) {
           console.warn('Natal chart generation failed:', chartErr)
         }
       }
+
+      capture('onboarding_completed', {
+        has_birth_date: !!birthDate,
+        has_birth_time: !!birthTime && !birthTimeUnknown,
+        has_birth_location: !!birthLocation,
+        experience_level: experienceLevel || 'new',
+        depth_preference: depthPreference || 'adaptive',
+        transit_preference: transitPreference || 'adaptive',
+      })
 
       onComplete()
     } catch (err) {
