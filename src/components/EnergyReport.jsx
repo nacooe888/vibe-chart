@@ -890,32 +890,28 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
             </div>
           )}
 
-          {/* Box 5: In Your Lifetime */}
+          {/* Box 5: History */}
           {data?.history && (
             <div style={boxStyle}>
-              <div style={labelStyle}>{data.history.neverInLifetime ? "history" : "in your lifetime"}</div>
+              <div style={labelStyle}>history</div>
               {(data.history.pastOccurrences?.length > 0 || data.history.lastOccurrence) ? (
-                <>
-                  <div style={{ marginBottom:12 }}>
-                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:8 }}>
-                      {data.history.neverInLifetime ? "last time these planets were here" : "past occurrences"}
-                    </div>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:8, justifyContent:"center" }}>
-                      {(data.history.pastOccurrences || [data.history.lastOccurrence].filter(Boolean)).map((year, i) => (
-                        <div key={i} style={{
-                          padding:"6px 14px", borderRadius:99,
-                          background:`${transit.color}18`, border:`1px solid ${transit.color}33`,
-                          fontSize:14, color:transit.color, fontWeight:400,
-                        }}>{year}</div>
-                      ))}
+                <div style={{ display:"flex", justifyContent:"space-around", textAlign:"center" }}>
+                  <div>
+                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>last time</div>
+                    <div style={{ fontSize:16, color:transit.color }}>
+                      {(data.history.pastOccurrences || [data.history.lastOccurrence])[0] || "—"}
                     </div>
                   </div>
                   {data.history.nextOccurrence && (
-                    <div style={{ textAlign:"center", fontSize:13, color:"rgba(255,255,255,0.5)" }}>
-                      next: <span style={{ color:transit.color }}>{data.history.nextOccurrence}</span>
-                    </div>
+                    <>
+                      <div style={{ width:1, background:"rgba(255,255,255,0.1)" }} />
+                      <div>
+                        <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>next time</div>
+                        <div style={{ fontSize:16, color:transit.color }}>{data.history.nextOccurrence}</div>
+                      </div>
+                    </>
                   )}
-                </>
+                </div>
               ) : (
                 <div style={{ fontSize:14, color:"rgba(255,255,255,0.5)", textAlign:"center", fontStyle:"italic" }}>
                   calculating history...

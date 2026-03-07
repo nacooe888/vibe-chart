@@ -109,7 +109,7 @@ ${skyContext}
 
 IMPORTANT: The transit positions above are for TODAY (${today}). If the orb is very tight (under 1°), the exact date is likely today or within days of today — do NOT guess a date weeks or months away. Use the orb to determine if the transit is exact now, applying, or separating.
 
-For history.pastOccurrences: calculate actual years this exact transit-to-natal aspect last occurred based on the transiting planet's orbital period and the natal position. Most recent first, max 5. Include occurrences before their birth if none happened in their lifetime — always show when the planets were last in this configuration.
+For history: Return the most recent past occurrence and next future occurrence. For outer planets (Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron), use year only (e.g. "2019"). For personal planets (Sun, Mercury, Venus, Mars) and Moon, use month and year (e.g. "March 2025"). Include pre-birth dates if it never happened in their lifetime. pastOccurrences should have the most recent one first, max 3.
 
 Respond with ONLY valid JSON, no markdown. Keep it compact:
 {
