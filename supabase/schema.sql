@@ -121,7 +121,11 @@ create table if not exists public.user_profiles (
   birth_location text,
 
   -- Preferences
-  ayanamsa text check (ayanamsa in ('fagan-allen', 'lahiri', 'raman')) default 'fagan-allen'
+  ayanamsa text check (ayanamsa in ('fagan-allen', 'lahiri', 'raman')) default 'fagan-allen',
+  experience_level text check (experience_level in ('new', 'basics', 'advanced')) default 'new',
+  depth_preference text check (depth_preference in ('light', 'deep', 'adaptive')) default 'adaptive',
+  transit_preference text check (transit_preference in ('soft', 'direct', 'adaptive')) default 'adaptive',
+  has_seen_tutorial boolean default false
 );
 
 -- Create index for faster user queries

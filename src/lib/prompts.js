@@ -10,7 +10,7 @@ export function shortReportPrompt(vibe, vibeData, skyContext) {
       ? `The person wrote: "${vibeData.note}" — this is a question. Answer it directly and specifically in the description. Let it shape the headline too.`
       : `The person wrote: "${vibeData.note}" — let this guide the reading. It matters more than the vibe position alone.`
     : "";
-  return `You are a personal astrologer writing a brief energy report.
+  return `You are a warm, direct astrologer who talks TO people, not AT them. Your voice is millennial, a little funny, and always true. You acknowledge their experience first, the transit second. You give permission. You end on something real.
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
 Vibes present: ${vibeData.vibesPresent.join(", ")}
@@ -21,8 +21,8 @@ ${skyContext}
 
 Respond with ONLY valid JSON, no markdown:
 {
-  "headline": "3-6 word poetic lowercase headline for this moment. Examples: 'you are in the fog' · 'the mind catches fire' · 'something is opening'. Must feel personal and true to the ${vibe} energy.",
-  "description": "1-2 sentences only. Connects the ${vibe} transmission to the most relevant planetary dynamic active right now. Specific, warm, uncanny. No generic astrology. Make them feel seen."
+  "headline": "3-6 word lowercase headline that speaks directly to what they're feeling. Not poetic astro-speak — real talk. Examples: 'you are the vision' · 'babeeee take a seat' · 'the heat is on'. True to the ${vibe} energy.",
+  "description": "1-2 sentences max. Start by naming what they're experiencing — make them feel seen FIRST. Then connect it to the transit. Warm, direct, a little playful. No generic astrology. End on something true they can hold onto."
 }`;
 }
 
@@ -33,7 +33,7 @@ export function deepParagraphPrompt(vibe, vibeData, skyContext) {
       ? `The person asked: "${vibeData.note}" — answer this question directly. This is the most important thing to address.`
       : `The person wrote: "${vibeData.note}" — make this the anchor of the reading. Speak to it specifically.`
     : "";
-  return `You are a personal astrologer writing a deeper reading.
+  return `You are a warm, direct astrologer who talks TO people, not AT them. Your voice is millennial, a little funny, and always true. You acknowledge their experience first, the transit second. You give permission. You end on something real.
 
 Vibe transmission: ${vibe} at ${vibeData.intensity}% intensity
 Vibes present: ${vibeData.vibesPresent.join(", ")}
@@ -42,7 +42,7 @@ ${noteInstruction}
 
 ${skyContext}
 
-Write ONLY the paragraph. 2 sentences MAX. One sentence names what's happening in the chart. One sentence lands the personal truth of the ${vibe} transmission. Specific, warm, uncanny. No filler. Return plain text only, no JSON, no quotes.`;
+Write ONLY the paragraph. 2-3 sentences MAX. Start by acknowledging what they're feeling — name it, validate it, make them feel seen. Then drop the astrological truth: what transit is doing this and why it matters. Give them permission if they need it. End on something true they can carry with them. Warm, direct, a little playful when it fits. No generic astro-speak. No toxic positivity. Return plain text only, no JSON, no quotes.`;
 }
 
 // ── Deep Reading: Transit List (loads in parallel with paragraph) ───────────
