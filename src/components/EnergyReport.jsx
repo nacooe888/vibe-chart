@@ -1535,16 +1535,12 @@ export default function EnergyReport({ onOpenChat }) {
       }
 
       // 3. Fetch fresh from AstroApp
-      const controller = new AbortController();
-      const abortTimer = setTimeout(() => controller.abort(), 8000);
       try {
         const res = await fetch('/api/astro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-PostHog-Distinct-Id': user.id },
           body: JSON.stringify({ type: 'transits' }),
-          signal: controller.signal,
         });
-        clearTimeout(abortTimer);
         if (res.ok) {
           const fresh = await res.json();
           saveChart(user.id, 'transits', fresh);
@@ -1556,17 +1552,16 @@ export default function EnergyReport({ onOpenChat }) {
           if (cached) setTransitChart(cached);
         }
       } catch (err) {
-        clearTimeout(abortTimer);
-        console.error('[transits] fetch error:', err.name === 'AbortError' ? 'timed out after 8s' : err);
+        console.error('[transits] fetch error:', err);
         if (cached) setTransitChart(cached);
       }
       setTransitLoading(false);
     })();
   }, [user?.id]);
 
-  // Failsafe: never block reports for more than 10s
+  // Failsafe: give Vercel cold starts time, but don't block forever
   useEffect(() => {
-    const t = setTimeout(() => setTransitLoading(false), 10000);
+    const t = setTimeout(() => setTransitLoading(false), 30000);
     return () => clearTimeout(t);
   }, []);
 
