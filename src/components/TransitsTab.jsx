@@ -830,7 +830,55 @@ export default function TransitsTab() {
   const dateLabel = transitChart?.date || 'today';
   const patterns = detectPatterns(positions, natalChart?.positions);
   const reciprocals = patterns.filter(p => p.type === 'reciprocal');
-  const transitWindows = computeTransitWindows(positions, natalChart?.positions, reciprocals);
+  const estimatedWindows = computeTransitWindows(positions, natalChart?.positions, reciprocals);
+  const [ephemerisWindows, setEphemerisWindows] = useState(null);
+  const transitWindows = ephemerisWindows || estimatedWindows;
+
+  // Fetch real ephemeris data to replace estimated dates
+  useEffect(() => {
+    if (!estimatedWindows.length || !natalChart?.positions) return;
+
+    const transits = estimatedWindows.map(w => ({
+      transitPlanet: w.transit,
+      natalPlanet: w.natal,
+      aspectDeg: w.aspect.deg,
+    }));
+
+    fetch('/api/ephemeris', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transits,
+        natalPositions: natalChart.positions,
+        scanYears: 2,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.results) return;
+        const enhanced = estimatedWindows.map((w, i) => {
+          const eph = data.results[i];
+          if (!eph || !eph.hits?.length) return w;
+
+          const peaks = eph.hits.map(h => new Date(h.date + 'T12:00:00Z'));
+          const window = eph.window;
+          const start = window ? new Date(window.start + 'T00:00:00Z') : w.start;
+          const end = window ? new Date(window.end + 'T23:59:59Z') : w.end;
+
+          return {
+            ...w,
+            peaks,
+            start,
+            end,
+            isMultiPass: peaks.length > 1,
+            orb: eph.currentOrb != null ? eph.currentOrb : w.orb,
+            ephemeris: true, // flag that this has real data
+          };
+        });
+        setEphemerisWindows(enhanced);
+      })
+      .catch(err => console.warn('[ephemeris] fetch failed, using estimates:', err));
+  }, [estimatedWindows.length, natalChart?.positions ? 'loaded' : 'none']);
 
   async function openPatternDetail(pattern) {
     setSelectedPattern(pattern);
