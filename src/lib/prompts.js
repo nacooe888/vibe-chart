@@ -94,8 +94,25 @@ IMPORTANT: Only include transits explicitly listed in the TRANSIT-TO-NATAL ASPEC
 }
 
 // ── Transit Deep Reading (full single-transit reading) ─────────────────────
-export function transitDeepPrompt(vibe, vibeData, transit, skyContext) {
+export function transitDeepPrompt(vibe, vibeData, transit, skyContext, ephemerisData) {
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+  // Build ephemeris context if available
+  let ephSection = '';
+  if (ephemerisData) {
+    const { hits, arcType, currentOrb, window } = ephemerisData;
+    ephSection = `\nEPHEMERIS DATA (computed from real orbital mechanics — use these dates, do NOT guess your own):`;
+    ephSection += `\nCurrent orb: ${currentOrb}°`;
+    ephSection += `\nArc type: ${arcType}`;
+    if (hits?.length) {
+      ephSection += `\nExact hit dates: ${hits.map(h => h.date).join(', ')}`;
+    }
+    if (window) {
+      ephSection += `\nActive window: ${window.start} to ${window.end}`;
+    }
+    ephSection += '\n';
+  }
+
   return `You are a personal astrologer writing a deep dive on one specific transit. Keep all text fields concise — no field should exceed 2 sentences.
 
 Today's date: ${today}
@@ -106,8 +123,8 @@ Note: "${vibeData.note}"
 The transit to explore: ${transit.name}
 
 ${skyContext}
-
-IMPORTANT: The transit positions above are for TODAY (${today}). If the orb is very tight (under 1°), the exact date is likely today or within days of today — do NOT guess a date weeks or months away. Use the orb to determine if the transit is exact now, applying, or separating.
+${ephSection}
+${ephemerisData ? 'IMPORTANT: Use the exact hit dates from the EPHEMERIS DATA above. Do NOT invent or guess different dates. These are computed from real planetary positions.' : `IMPORTANT: The transit positions above are for TODAY (${today}). If the orb is very tight (under 1°), the exact date is likely today or within days of today — do NOT guess a date weeks or months away.`}
 
 For history: Return the most recent past occurrence and next future occurrence. For outer planets (Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron), use year only (e.g. "2019"). For personal planets (Sun, Mercury, Venus, Mars) and Moon, use month and year (e.g. "March 2025"). Include pre-birth dates if it never happened in their lifetime. pastOccurrences should have the most recent one first, max 3.
 
@@ -116,7 +133,7 @@ Respond with ONLY valid JSON, no markdown. Keep it compact:
   "movement": {
     "orb": "orb distance as decimal, e.g. '0.12°'",
     "status": "applying | separating | exact",
-    "exactDate": "e.g. 'March 8, 2026'"
+    "exactDate": "nearest exact hit date from ephemeris data"
   },
   "reading": {
     "rarity": "2 sentences max. How rare is this transit and why it matters now. Acknowledge the ${vibe} vibe.",
@@ -124,7 +141,7 @@ Respond with ONLY valid JSON, no markdown. Keep it compact:
   },
   "arc": {
     "type": "one-hit | multi-pass",
-    "dates": ["Dec 2025", "Mar 2026", "Oct 2026"],
+    "dates": [${ephemerisData?.hits?.length ? ephemerisData.hits.map(h => `"${h.date}"`).join(', ') : '"use ephemeris dates"'}],
     "currentPhase": "which phase are we in now? e.g. 'second pass (retrograde)' or 'only pass'"
   },
   "howToWork": "2 sentences max. How to work with this transit right now. Practical and specific.",

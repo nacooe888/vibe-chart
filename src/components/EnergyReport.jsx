@@ -262,8 +262,41 @@ async function generateDeepTransits(vibe, vibeData, skyContext) {
 }
 
 // Generate full reading for a single transit
-async function generateTransitDeep(vibe, vibeData, transit, skyContext) {
-  const prompt = transitDeepPrompt(vibe, vibeData, transit, skyContext);
+const ASPECT_DEGS = { conjunct:0, sextile:60, square:90, trine:120, opposite:180 };
+
+async function fetchEphemerisForTransit(transitName, natalChart) {
+  if (!natalChart?.positions) return null;
+  // Parse "Neptune conjunct natal Mars" → transitPlanet=Neptune, aspect=conjunct, natalPlanet=Mars
+  const match = transitName.match(/^(\w+)\s+(conjunct|sextile|square|trine|opposite)\s+(?:natal\s+)?(\w+)$/i);
+  if (!match) return null;
+  const [, transitPlanet, aspect, natalPlanet] = match;
+  const aspectDeg = ASPECT_DEGS[aspect.toLowerCase()];
+  if (aspectDeg == null) return null;
+  const natalPos = natalChart.positions[natalPlanet];
+  if (!natalPos?.sidereal) return null;
+
+  try {
+    const res = await fetch('/api/ephemeris', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transits: [{ transitPlanet, natalPlanet, aspectDeg }],
+        natalPositions: natalChart.positions,
+        scanYears: 2,
+      }),
+    });
+    const data = await res.json();
+    return data.results?.[0] || null;
+  } catch (e) {
+    console.warn('[ephemeris] fetch failed:', e);
+    return null;
+  }
+}
+
+async function generateTransitDeep(vibe, vibeData, transit, skyContext, natalChart) {
+  // Fetch real ephemeris data in parallel with prompt construction
+  const ephemerisData = await fetchEphemerisForTransit(transit.name, natalChart);
+  const prompt = transitDeepPrompt(vibe, vibeData, transit, skyContext, ephemerisData);
 
   const res = await claudeFetch({
     model:"claude-sonnet-4-6",
@@ -443,7 +476,7 @@ function getJournalPrompt(category, arcHit, arcDates, previousEntries) {
 // ─── Transit Deep Screen ───
 const transitCache = {};
 
-function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat, skyContext, latestVibe }) {
+function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat, skyContext, latestVibe, natalChart }) {
   const { user } = useAuth();
   const vibeData = getVibeData(vibe, latestVibe);
   const cacheKey = `${vibe}-${transit.name}`;
@@ -483,7 +516,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
 
   useEffect(() => {
     if (transitCache[cacheKey]) { setData(transitCache[cacheKey]); setLoading(false); return; }
-    generateTransitDeep(vibe, vibeData, transit, skyContext)
+    generateTransitDeep(vibe, vibeData, transit, skyContext, natalChart)
       .then(r => {
         try {
           let cleaned = r.replace(/```json|```/g,"").trim();
@@ -1636,6 +1669,7 @@ export default function EnergyReport({ onOpenChat }) {
           onChat={onOpenChat}
           skyContext={skyContext}
           latestVibe={latestVibe}
+          natalChart={natalChart}
         />
       )}
       {screen === "transit-ritual" && activeTransit && deepVibe && (
