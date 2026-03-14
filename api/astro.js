@@ -264,6 +264,11 @@ export default async function handler(req, res) {
       }
 
       const astroData = await astroRes.json()
+      // Debug: log raw object keys to understand AstroApp response shape
+      if (Array.isArray(astroData.objects) && astroData.objects.length > 0) {
+        console.log('[astro debug] raw object keys:', JSON.stringify(Object.keys(astroData.objects[0])))
+        console.log('[astro debug] Sun raw:', JSON.stringify(astroData.objects[0]))
+      }
       const positions = parseAstroResponse(astroData, ayanamsa)
 
       const dateDisplay = now.toLocaleDateString('en-US', {
