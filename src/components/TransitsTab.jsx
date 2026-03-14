@@ -351,53 +351,72 @@ function computeTransitWindows(transitPositions, natalPositions, reciprocals) {
 }
 
 // ── Timeline Chart Component ────────────────────────────────────────────────
+// Now is ALWAYS centered. Range extends equally before/after now.
 
-function getTimelineRange(scale) {
+const SCALE_HALF_DAYS = { month: 15, quarter: 45, year: 182 };
+
+function getCenteredRange(scale) {
   const now = new Date();
-  if (scale === 'month') {
-    return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0) };
-  } else if (scale === 'quarter') {
-    return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 3, 0) };
-  } else {
-    return { start: new Date(now.getFullYear(), 0, 1), end: new Date(now.getFullYear(), 11, 31) };
-  }
+  const half = SCALE_HALF_DAYS[scale] * 86400000;
+  return { start: new Date(now.getTime() - half), end: new Date(now.getTime() + half) };
 }
 
-function getTimelineTicks(scale, rangeStart, rangeEnd, toPercent) {
-  const now = new Date();
+function getCenteredTicks(scale, rangeStart, rangeEnd, toPercent) {
   const ticks = [];
+  const totalDays = (rangeEnd - rangeStart) / 86400000;
+
   if (scale === 'month') {
-    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 7)) {
-      ticks.push({ pos: toPercent(new Date(d)), label: d.getDate().toString() });
+    // tick every ~5 days
+    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 5)) {
+      const t = new Date(d);
+      ticks.push({ pos: toPercent(t), label: t.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
     }
   } else if (scale === 'quarter') {
-    for (let m = 0; m < 3; m++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
-      ticks.push({ pos: toPercent(d), label: d.toLocaleDateString('en-US', { month: 'short' }) });
+    // tick on 1st of each month
+    const start = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    for (let d = new Date(start); d <= rangeEnd; d.setMonth(d.getMonth() + 1)) {
+      const t = new Date(d);
+      if (t >= rangeStart) ticks.push({ pos: toPercent(t), label: t.toLocaleDateString('en-US', { month: 'short' }) });
     }
   } else {
-    for (let m = 0; m < 12; m++) {
-      const d = new Date(now.getFullYear(), m, 1);
-      ticks.push({ pos: toPercent(d), label: d.toLocaleDateString('en-US', { month: 'short' }).charAt(0) });
+    // tick on 1st of each month, short labels
+    const start = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+    for (let d = new Date(start); d <= rangeEnd; d.setMonth(d.getMonth() + 1)) {
+      const t = new Date(d);
+      if (t >= rangeStart) ticks.push({ pos: toPercent(t), label: t.toLocaleDateString('en-US', { month: 'short' }).charAt(0) });
     }
   }
   return ticks;
 }
 
-// Mini preview — shows top 8 rows as a compact tappable Gantt
+// Build an SVG gradient ID and element for a bar that peaks at the exact point
+function barGradient(id, color, exactPct) {
+  // exactPct is 0-100 within the bar, that's the peak (full opacity)
+  // edges fade to 0
+  const peak = Math.max(2, Math.min(98, exactPct));
+  return (
+    <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stopColor={color} stopOpacity="0" />
+      <stop offset={`${peak}%`} stopColor={color} stopOpacity="0.5" />
+      <stop offset="100%" stopColor={color} stopOpacity="0" />
+    </linearGradient>
+  );
+}
+
+// Mini preview — compact tappable Gantt, now centered
 function TimelinePreview({ windows, onClick }) {
   const now = new Date();
-  const { start: rangeStart, end: rangeEnd } = getTimelineRange('quarter');
+  const { start: rangeStart, end: rangeEnd } = getCenteredRange('quarter');
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
   const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
-  const nowPct = toPercent(now);
   const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd).slice(0, 8);
-  const ticks = getTimelineTicks('quarter', rangeStart, rangeEnd, toPercent);
+  const ticks = getCenteredTicks('quarter', rangeStart, rangeEnd, toPercent);
 
   if (visible.length === 0) return null;
 
   const LABEL_W = 90;
   const ROW_H = 20;
+  const svgId = 'prev';
 
   return (
     <div onClick={onClick} style={{
@@ -417,17 +436,19 @@ function TimelinePreview({ windows, onClick }) {
 
       {/* Rows */}
       <div style={{ position: "relative" }}>
-        {/* Now line */}
+        {/* Now line at center */}
         <div style={{
           position: "absolute", left: LABEL_W + 6, right: 0, top: 0, bottom: 0, pointerEvents: "none",
         }}>
-          <div style={{ position: "absolute", left: `${nowPct}%`, top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.1)" }}/>
+          <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.12)" }}/>
         </div>
 
         {visible.map((w, i) => {
           const left = toPercent(w.start);
           const right = toPercent(w.end);
           const width = Math.max(right - left, 0.8);
+          const exactPct = width > 0 ? ((toPercent(w.exact) - left) / width) * 100 : 50;
+          const gId = `${svgId}-${i}`;
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", height: ROW_H }}>
               <div style={{
@@ -437,9 +458,11 @@ function TimelinePreview({ windows, onClick }) {
               }}>{w.rowLabel}</div>
               <div style={{ flex: 1, position: "relative", height: 10, marginLeft: 6 }}>
                 <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.02)" }}/>
-                <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 1, bottom: 1 }}>
-                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, ${w.color}00, ${w.color}30, ${w.color}00)`, borderRadius: 3 }}/>
-                </div>
+                <svg style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 0, height: "100%" }} preserveAspectRatio="none" viewBox="0 0 100 10">
+                  <defs>{barGradient(gId, w.color, exactPct)}</defs>
+                  <rect x="0" y="1" width="100" height="8" rx="3" fill={`url(#${gId})`} />
+                  <line x1={exactPct} y1="0" x2={exactPct} y2="10" stroke={w.color} strokeWidth="1.5" opacity="0.8" />
+                </svg>
               </div>
             </div>
           );
@@ -457,16 +480,15 @@ function TimelinePreview({ windows, onClick }) {
   );
 }
 
-// Full-screen detailed Gantt — each row is a specific transit aspect
+// Full-screen detailed Gantt — now always centered, bars fade to peak
 function TimelineFull({ windows, onBack }) {
   const [scale, setScale] = useState('quarter');
   const now = new Date();
-  const { start: rangeStart, end: rangeEnd } = getTimelineRange(scale);
+  const { start: rangeStart, end: rangeEnd } = getCenteredRange(scale);
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
   const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
-  const nowPct = toPercent(now);
   const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd);
-  const ticks = getTimelineTicks(scale, rangeStart, rangeEnd, toPercent);
+  const ticks = getCenteredTicks(scale, rangeStart, rangeEnd, toPercent);
 
   const LABEL_W = 140;
   const ROW_H = 48;
@@ -517,7 +539,6 @@ function TimelineFull({ windows, onBack }) {
           border: "1px solid rgba(255,255,255,0.06)",
           borderRadius: 18,
           padding: "20px 18px 14px",
-          overflowX: "auto",
         }}>
           {/* Time axis header */}
           <div style={{ position: "relative", marginLeft: LABEL_W + 12, height: 22, marginBottom: 4 }}>
@@ -528,23 +549,24 @@ function TimelineFull({ windows, onBack }) {
                 transform: "translateX(-50%)", whiteSpace: "nowrap",
               }}>{t.label}</div>
             ))}
+            {/* "now" label always at 50% */}
             <div style={{
-              position: "absolute", left: `${nowPct}%`, top: -2,
+              position: "absolute", left: "50%", top: -2,
               transform: "translateX(-50%)", fontSize: 8, letterSpacing: "0.15em",
-              color: "rgba(255,255,255,0.4)", textTransform: "uppercase",
+              color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
             }}>now</div>
           </div>
 
           {/* Rows */}
           <div style={{ position: "relative" }}>
-            {/* Now line spanning all rows */}
+            {/* Now line always at center */}
             <div style={{
               position: "absolute", top: 0, bottom: 0,
               left: LABEL_W + 12, right: 0, pointerEvents: "none",
             }}>
               <div style={{
-                position: "absolute", left: `${nowPct}%`, top: 0, bottom: 0,
-                width: 1, background: "rgba(255,255,255,0.15)", zIndex: 2,
+                position: "absolute", left: "50%", top: 0, bottom: 0,
+                width: 1, background: "rgba(255,255,255,0.18)", zIndex: 2,
               }}/>
             </div>
 
@@ -556,9 +578,9 @@ function TimelineFull({ windows, onBack }) {
               const left = toPercent(w.start);
               const right = toPercent(w.end);
               const width = Math.max(right - left, 0.8);
-              const exactPct = toPercent(w.exact);
-              const exactInBar = width > 0 ? ((exactPct - left) / width) * 100 : 50;
+              const exactPct = width > 0 ? ((toPercent(w.exact) - left) / width) * 100 : 50;
               const exactLabel = w.exact.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              const gId = `full-${ri}`;
 
               return (
                 <div key={ri} style={{
@@ -583,29 +605,23 @@ function TimelineFull({ windows, onBack }) {
                   </div>
 
                   {/* Bar */}
-                  <div style={{ flex: 1, position: "relative", height: 24, marginLeft: 12 }}>
+                  <div style={{ flex: 1, position: "relative", height: 28, marginLeft: 12 }}>
                     <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.025)" }}/>
-                    <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2 }}>
-                      {/* Gradient bar */}
+                    <svg style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, height: 24 }} preserveAspectRatio="none" viewBox="0 0 100 24">
+                      <defs>{barGradient(gId, w.color, exactPct)}</defs>
+                      <rect x="0" y="2" width="100" height="20" rx="5" fill={`url(#${gId})`} />
+                      <line x1={exactPct} y1="0" x2={exactPct} y2="24" stroke={w.color} strokeWidth="1.5" opacity="0.9" />
+                    </svg>
+                    {/* Exact date label below bar */}
+                    {width > 4 && (
                       <div style={{
-                        position: "absolute", inset: 0, borderRadius: 5,
-                        background: `linear-gradient(90deg, ${w.color}08, ${w.color}40, ${w.color}08)`,
-                        border: `1px solid ${w.color}20`,
-                      }}/>
-                      {/* Exact marker */}
-                      <div style={{
-                        position: "absolute", left: `${exactInBar}%`, top: -2, bottom: -2,
-                        width: 2, background: w.color, borderRadius: 1, opacity: 0.9,
-                      }}/>
-                      {/* Exact date label */}
-                      {width > 5 && (
-                        <div style={{
-                          position: "absolute", left: `${exactInBar}%`, bottom: -14,
-                          transform: "translateX(-50%)", fontSize: 8, color: w.color,
-                          opacity: 0.5, whiteSpace: "nowrap",
-                        }}>{exactLabel}</div>
-                      )}
-                    </div>
+                        position: "absolute",
+                        left: `${toPercent(w.exact)}%`,
+                        top: 28,
+                        transform: "translateX(-50%)",
+                        fontSize: 8, color: w.color, opacity: 0.45, whiteSpace: "nowrap",
+                      }}>{exactLabel}</div>
+                    )}
                   </div>
                 </div>
               );
@@ -618,7 +634,7 @@ function TimelineFull({ windows, onBack }) {
           marginTop: 20, textAlign: "center", fontSize: 10,
           color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", lineHeight: 2.2,
         }}>
-          bright line = exact date · bar = active window · sorted by impact<br/>
+          line = peak (exact aspect) · bar fades from edges to peak<br/>
           ↔ = reciprocal transit · Rx = retrograde
         </div>
       </div>
