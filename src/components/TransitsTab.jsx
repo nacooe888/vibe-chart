@@ -203,16 +203,12 @@ export default function TransitsTab() {
         return;
       }
 
-      const controller = new AbortController();
-      const abortTimer = setTimeout(() => controller.abort(), 8000);
       try {
         const res = await fetch('/api/astro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-PostHog-Distinct-Id': user.id },
           body: JSON.stringify({ type: 'transits' }),
-          signal: controller.signal,
         });
-        clearTimeout(abortTimer);
         if (res.ok) {
           const fresh = await res.json();
           saveChart(user.id, 'transits', fresh);
@@ -222,16 +218,16 @@ export default function TransitsTab() {
           setTransitChart(cached);
         }
       } catch (err) {
-        clearTimeout(abortTimer);
+        console.error('[transits] fetch error:', err);
         if (cached) setTransitChart(cached);
       }
       setLoading(false);
     })();
   }, [user?.id]);
 
-  // Failsafe
+  // Failsafe — give Vercel serverless function time to cold-start
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 10000);
+    const t = setTimeout(() => setLoading(false), 30000);
     return () => clearTimeout(t);
   }, []);
 
@@ -301,7 +297,7 @@ export default function TransitsTab() {
             fontSize: 14,
             lineHeight: 1.8,
           }}>
-            no transit data available yet — check back soon
+            no transit data available yet — try visiting the report tab first, then come back
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
