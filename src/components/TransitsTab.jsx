@@ -176,34 +176,45 @@ export default function TransitsTab() {
       }
     });
 
-    // Load transit chart (same logic as EnergyReport)
+    // Load transit chart — always fetches independently
     (async () => {
       const ONE_HOUR_MS = 60 * 60 * 1000;
       const lsKey = `vibe_transit_${user.id}`;
+      let cached = null;
 
+      // 1. Check localStorage (instant)
       try {
         const raw = localStorage.getItem(lsKey);
         if (raw) {
           const parsed = JSON.parse(raw);
           const age = Date.now() - new Date(parsed.fetchedAt).getTime();
-          if (age < ONE_HOUR_MS) {
+          if (age < ONE_HOUR_MS && parsed.positions) {
             setTransitChart(parsed);
             setLoading(false);
             return;
           }
+          cached = parsed; // stale but usable as fallback
         }
       } catch (e) { /* ignore */ }
 
-      const cached = await loadChart(user.id, 'transits');
-      const isStale = !cached?.fetchedAt || Date.now() - new Date(cached.fetchedAt).getTime() > ONE_HOUR_MS;
-      if (!isStale) {
-        setTransitChart(cached);
-        try { localStorage.setItem(lsKey, JSON.stringify(cached)); } catch (e) {}
-        setLoading(false);
-        return;
+      // 2. Check Supabase
+      if (!cached) {
+        const fromDb = await loadChart(user.id, 'transits');
+        if (fromDb) {
+          cached = fromDb;
+          const age = fromDb.fetchedAt ? Date.now() - new Date(fromDb.fetchedAt).getTime() : Infinity;
+          if (age < ONE_HOUR_MS && fromDb.positions) {
+            setTransitChart(fromDb);
+            try { localStorage.setItem(lsKey, JSON.stringify(fromDb)); } catch (e) {}
+            setLoading(false);
+            return;
+          }
+        }
       }
 
+      // 3. Fetch fresh from API
       try {
+        console.log('[sky] fetching fresh transits from /api/astro');
         const res = await fetch('/api/astro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-PostHog-Distinct-Id': user.id },
@@ -211,14 +222,17 @@ export default function TransitsTab() {
         });
         if (res.ok) {
           const fresh = await res.json();
+          console.log('[sky] got fresh transits:', Object.keys(fresh.positions || {}));
           saveChart(user.id, 'transits', fresh);
           try { localStorage.setItem(lsKey, JSON.stringify(fresh)); } catch (e) {}
           setTransitChart(fresh);
-        } else if (cached) {
-          setTransitChart(cached);
+        } else {
+          const errText = await res.text();
+          console.error('[sky] /api/astro failed:', res.status, errText);
+          if (cached) setTransitChart(cached);
         }
       } catch (err) {
-        console.error('[transits] fetch error:', err);
+        console.error('[sky] fetch error:', err);
         if (cached) setTransitChart(cached);
       }
       setLoading(false);
@@ -297,7 +311,7 @@ export default function TransitsTab() {
             fontSize: 14,
             lineHeight: 1.8,
           }}>
-            no transit data available yet — try visiting the report tab first, then come back
+            couldn't load transit data — try refreshing the page
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
