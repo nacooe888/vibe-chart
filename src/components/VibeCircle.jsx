@@ -634,6 +634,8 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
             <circle cx={0} cy={0} r={R} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={1}/>
             {[0.33,0.66].map(f=><circle key={f} cx={0} cy={0} r={R*f} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={0.5} strokeDasharray="2,9"/>)}
             {VIBES.map(({angle,color})=>{ const [x,y]=polar(angle,R); return <line key={`sp${angle}`} x1={0} y1={0} x2={x} y2={y} stroke={color} strokeWidth={0.4} strokeOpacity={0.18}/>; })}
+            <circle cx={0} cy={0} r={22} fill="url(#voidCenter)" stroke="rgba(255,255,255,0.1)" strokeWidth={0.75}/>
+            <text x={0} y={0} textAnchor="middle" dominantBaseline="middle" style={{fontFamily:"'Cormorant Garamond',serif",fontSize:7,fill:"rgba(255,255,255,0.35)",letterSpacing:"0.28em",pointerEvents:"none"}}>VOID</text>
             {hasData&&shapePath&&<>
               <path d={shapePath} fill={auraColor} fillOpacity={0.13}/>
               <path d={shapePath} fill="none" stroke={auraColor} strokeWidth={2} strokeOpacity={0.9} strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)"/>
@@ -649,11 +651,9 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
               const isBottom=angle>=120&&angle<=300&&angle!==300;
               const rotation=isBottom?angle+180:angle;
               const [lx,ly]=polar(angle,R*1.19);
-              return <text key={`ol${angle}`} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fill={color} fillOpacity={0.75} fontSize={9} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em" style={{pointerEvents:"none"}} transform={`rotate(${rotation},${lx},${ly})`}>{outer.toUpperCase()}</text>;
+              return <text key={`ol${angle}`} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" fill={color} fillOpacity={0.75} fontSize={9} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em" style={{cursor:mode==="plot"?"pointer":"default"}} transform={`rotate(${rotation},${lx},${ly})`} onClick={e=>{if(mode!=="plot")return;e.stopPropagation();const [px,py]=polar(angle,R);setPlotPoints(prev=>[...prev,[px,py]]);}}>{outer.toUpperCase()}</text>;
             })}
             {VIBES.map(({angle,color})=>{ const [x,y]=polar(angle,R); return <circle key={`rim${angle}`} cx={x} cy={y} r={2} fill={color} fillOpacity={0.55}/>; })}
-            <circle cx={0} cy={0} r={22} fill="url(#voidCenter)" stroke="rgba(255,255,255,0.1)" strokeWidth={0.75}/>
-            <text x={0} y={0} textAnchor="middle" dominantBaseline="middle" style={{fontFamily:"'Cormorant Garamond',serif",fontSize:7,fill:"rgba(255,255,255,0.35)",letterSpacing:"0.28em",pointerEvents:"none"}}>VOID</text>
           </svg>
 
           {!saved&&(
