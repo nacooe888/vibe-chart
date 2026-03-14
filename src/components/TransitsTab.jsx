@@ -935,12 +935,106 @@ Respond with ONLY valid JSON:
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 10, letterSpacing: "0.06em" }}>
               {w.orb.toFixed(1)}° orb{w.isRx ? ' · retrograde' : ''}{w.isMultiPass ? ' · multi-pass arc' : ''}
             </div>
-            {w.isMultiPass && (
-              <div style={{ fontSize: 11, color, opacity: 0.5, marginTop: 6, letterSpacing: "0.08em" }}>
-                exact hits: {w.peaks.map(p => p.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })).join(' · ')}
-              </div>
-            )}
           </div>
+
+          {/* Arc visualization for multi-pass transits */}
+          {w.isMultiPass && w.peaks.length > 1 && (() => {
+            const peaks = w.peaks;
+            const totalMs = peaks[peaks.length - 1].getTime() - peaks[0].getTime();
+            const pad = totalMs * 0.15; // 15% padding on each side
+            const rangeStart = peaks[0].getTime() - pad;
+            const rangeEnd = peaks[peaks.length - 1].getTime() + pad;
+            const rangeMs = rangeEnd - rangeStart;
+            const toX = (d) => ((d.getTime() - rangeStart) / rangeMs) * 280 + 10;
+            const now = new Date();
+            const nowX = toX(now);
+            const passLabels = peaks.length === 3
+              ? ['1st pass (direct)', '2nd pass (Rx)', '3rd pass (direct)']
+              : peaks.map((_, i) => `pass ${i + 1}`);
+
+            // Build a smooth curve through the peaks (rising to each peak, dipping between)
+            const curveH = 60;
+            const baseY = curveH + 10;
+            const peakY = 12;
+            const dipY = baseY - 14;
+            const points = [];
+
+            peaks.forEach((p, i) => {
+              const x = toX(p);
+              if (i === 0) {
+                points.push(`M ${toX(new Date(rangeStart))} ${baseY}`);
+                points.push(`Q ${(toX(new Date(rangeStart)) + x) / 2} ${baseY} ${x} ${peakY}`);
+              } else {
+                const prevX = toX(peaks[i - 1]);
+                const midX = (prevX + x) / 2;
+                points.push(`Q ${(prevX + midX) / 2} ${dipY} ${midX} ${dipY}`);
+                points.push(`Q ${(midX + x) / 2} ${dipY} ${x} ${peakY}`);
+              }
+              if (i === peaks.length - 1) {
+                const endX = toX(new Date(rangeEnd));
+                points.push(`Q ${(x + endX) / 2} ${baseY} ${endX} ${baseY}`);
+              }
+            });
+
+            return (
+              <div style={{
+                background: `${color}06`,
+                border: `1px solid ${color}12`,
+                borderRadius: 16,
+                padding: "20px 10px 14px",
+                marginBottom: 20,
+              }}>
+                <div style={{
+                  fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase",
+                  color, opacity: 0.5, textAlign: "center", marginBottom: 12,
+                }}>planetary arc</div>
+                <svg viewBox="0 0 300 110" style={{ width: "100%", height: "auto" }}>
+                  {/* Baseline */}
+                  <line x1="10" y1={baseY} x2="290" y2={baseY} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+
+                  {/* Arc curve */}
+                  <path d={points.join(' ')} fill="none" stroke={color} strokeWidth="2" opacity="0.4" />
+
+                  {/* Filled area under curve */}
+                  <path d={`${points.join(' ')} L ${toX(new Date(rangeEnd))} ${baseY} L ${toX(new Date(rangeStart))} ${baseY} Z`}
+                    fill={color} opacity="0.06" />
+
+                  {/* Now marker */}
+                  {now >= new Date(rangeStart) && now <= new Date(rangeEnd) && (
+                    <>
+                      <line x1={nowX} y1={8} x2={nowX} y2={baseY + 4} stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="3,3" />
+                      <text x={nowX} y={baseY + 14} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="7" fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em">NOW</text>
+                    </>
+                  )}
+
+                  {/* Peak markers */}
+                  {peaks.map((p, i) => {
+                    const x = toX(p);
+                    const dateStr = p.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const isPast = p < now;
+                    const isCurrent = Math.abs(p - now) < 14 * 86400000; // within 2 weeks
+                    return (
+                      <g key={i}>
+                        {/* Peak dot */}
+                        <circle cx={x} cy={peakY} r={isCurrent ? 5 : 3.5} fill={color} opacity={isPast && !isCurrent ? 0.3 : 0.8} />
+                        {isCurrent && <circle cx={x} cy={peakY} r={8} fill={color} opacity="0.15" />}
+                        {/* Peak line down to baseline */}
+                        <line x1={x} y1={peakY + 6} x2={x} y2={baseY} stroke={color} strokeWidth="1" opacity={isPast && !isCurrent ? 0.15 : 0.3} />
+                        {/* Date */}
+                        <text x={x} y={baseY + 14} textAnchor="middle" fill={color} opacity={isPast && !isCurrent ? 0.3 : 0.7} fontSize="8" fontFamily="'Cormorant Garamond',serif">
+                          {dateStr}
+                        </text>
+                        {/* Pass label */}
+                        <text x={x} y={baseY + 24} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="7" fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">
+                          {passLabels[i]}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            );
+          })()}
 
           {transitDetailLoading ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
