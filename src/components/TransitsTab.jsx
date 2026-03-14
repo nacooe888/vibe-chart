@@ -264,6 +264,296 @@ const PATTERN_LABELS = {
   'convergence': 'convergence',
 };
 
+// ── Timeline: average daily motion (degrees) for estimating transit windows ──
+
+const AVG_DAILY_MOTION = {
+  Sun: 0.9856, Mercury: 1.2, Venus: 1.2, Mars: 0.524,
+  Jupiter: 0.0831, Saturn: 0.0335, Uranus: 0.0119, Neptune: 0.006, Pluto: 0.004,
+};
+
+// Skip Moon (too fast to be useful on a monthly+ chart)
+const TIMELINE_PLANETS = ['Sun','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto'];
+
+function computeTransitWindows(transitPositions, natalPositions) {
+  if (!transitPositions || !natalPositions) return [];
+  const windows = [];
+  const now = new Date();
+  const natalPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','ASC','MC'];
+
+  TIMELINE_PLANETS.forEach(tp => {
+    const tpos = transitPositions[tp];
+    if (!tpos) return;
+    const tAbs = toAbs(tpos.sign, tpos.degree, tpos.minute);
+    const speed = AVG_DAILY_MOTION[tp] || 0.01;
+    const isRx = tpos.retrograde === true;
+    const maxOrb = OUTER_PLANETS.includes(tp) ? 5 : 2;
+
+    natalPlanets.forEach(np => {
+      const npos = natalPositions[np];
+      if (!npos) return;
+      const nAbs = toAbs(npos.sign, npos.degree, npos.minute);
+
+      ASPECTS.forEach(asp => {
+        const orb = Math.abs(orbBetween(tAbs, nAbs) - asp.deg);
+        if (orb > maxOrb) return;
+
+        // Estimate days from now to enter/leave orb
+        // For retrograde planets, the window is roughly 2x because they pass, reverse, pass again
+        const rxMultiplier = isRx ? 2.5 : 1;
+        const daysPerDeg = 1 / speed;
+        const daysToExact = orb * daysPerDeg;
+        const windowHalf = maxOrb * daysPerDeg * rxMultiplier;
+
+        // Determine if applying or separating to place the exact date
+        const diff = signedAspectDiff(tAbs, nAbs, asp.deg);
+        let exactDate;
+        if (Math.abs(diff) < 0.15) {
+          exactDate = now;
+        } else if ((!isRx && diff < 0) || (isRx && diff > 0)) {
+          // applying
+          exactDate = new Date(now.getTime() + daysToExact * 86400000);
+        } else {
+          // separating
+          exactDate = new Date(now.getTime() - daysToExact * 86400000);
+        }
+
+        const start = new Date(exactDate.getTime() - windowHalf * 86400000);
+        const end = new Date(exactDate.getTime() + windowHalf * 86400000);
+
+        windows.push({
+          transit: tp,
+          natal: np,
+          aspect: asp,
+          orb,
+          start,
+          end,
+          exact: exactDate,
+          color: PLANET_COLORS[tp],
+          label: `${asp.glyph} ${np}`,
+          isRx,
+        });
+      });
+    });
+  });
+
+  // Sort by planet order, then by start date
+  const order = Object.fromEntries(TIMELINE_PLANETS.map((p, i) => [p, i]));
+  windows.sort((a, b) => (order[a.transit] ?? 99) - (order[b.transit] ?? 99) || a.start - b.start);
+  return windows;
+}
+
+// ── Timeline Chart Component ────────────────────────────────────────────────
+
+function TransitTimeline({ windows }) {
+  const [scale, setScale] = useState('quarter');
+
+  const now = new Date();
+  let rangeStart, rangeEnd, tickFormat, tickCount;
+
+  if (scale === 'month') {
+    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    tickFormat = (d) => d.getDate().toString();
+    tickCount = rangeEnd.getDate();
+  } else if (scale === 'quarter') {
+    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    rangeEnd = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+    tickFormat = (d) => d.toLocaleDateString('en-US', { month: 'short' });
+    tickCount = 3;
+  } else {
+    rangeStart = new Date(now.getFullYear(), 0, 1);
+    rangeEnd = new Date(now.getFullYear(), 11, 31);
+    tickFormat = (d) => d.toLocaleDateString('en-US', { month: 'short' });
+    tickCount = 12;
+  }
+
+  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
+  const toPercent = (date) => {
+    const clamped = Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), date.getTime()));
+    return ((clamped - rangeStart.getTime()) / totalMs) * 100;
+  };
+
+  // Filter windows that overlap with the visible range
+  const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd);
+
+  // Group by transit planet, combining aspect labels per row
+  const rows = [];
+  const planetGroups = {};
+  visible.forEach(w => {
+    if (!planetGroups[w.transit]) planetGroups[w.transit] = [];
+    planetGroups[w.transit].push(w);
+  });
+
+  TIMELINE_PLANETS.forEach(p => {
+    if (planetGroups[p]) rows.push({ planet: p, windows: planetGroups[p] });
+  });
+
+  // Generate tick marks
+  const ticks = [];
+  if (scale === 'month') {
+    // Weekly ticks
+    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 7)) {
+      ticks.push({ pos: toPercent(new Date(d)), label: d.getDate().toString() });
+    }
+  } else if (scale === 'quarter') {
+    for (let m = 0; m < 3; m++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
+      ticks.push({ pos: toPercent(d), label: d.toLocaleDateString('en-US', { month: 'short' }) });
+    }
+  } else {
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(now.getFullYear(), m, 1);
+      ticks.push({ pos: toPercent(d), label: d.toLocaleDateString('en-US', { month: 'short' }).charAt(0) });
+    }
+  }
+
+  const nowPercent = toPercent(now);
+  const ROW_H = 34;
+  const GLYPH_W = 36;
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      {/* Scale toggle */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 16 }}>
+        {['month', 'quarter', 'year'].map(s => (
+          <button key={s} onClick={() => setScale(s)} style={{
+            padding: "5px 14px",
+            borderRadius: 99,
+            border: `1px solid ${scale === s ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`,
+            background: scale === s ? 'rgba(255,255,255,0.08)' : 'transparent',
+            color: scale === s ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
+            fontFamily: "'Cormorant Garamond',serif",
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            cursor: "pointer",
+            transition: "all 0.2s",
+          }}>
+            {s}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ position: "relative", marginLeft: GLYPH_W + 8 }}>
+        {/* Time axis labels */}
+        <div style={{ position: "relative", height: 18, marginBottom: 6 }}>
+          {ticks.map((t, i) => (
+            <div key={i} style={{
+              position: "absolute",
+              left: `${t.pos}%`,
+              fontSize: 9,
+              color: "rgba(255,255,255,0.2)",
+              letterSpacing: "0.08em",
+              transform: "translateX(-50%)",
+              whiteSpace: "nowrap",
+            }}>
+              {t.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Now line reference — extends through rows */}
+        <div style={{
+          position: "absolute",
+          left: `${nowPercent}%`,
+          top: 24,
+          bottom: 0,
+          width: 1,
+          background: "rgba(255,255,255,0.15)",
+          zIndex: 1,
+        }}/>
+      </div>
+
+      {/* Rows */}
+      {rows.map((row, ri) => (
+        <div key={row.planet} style={{
+          display: "flex",
+          alignItems: "center",
+          height: ROW_H,
+          animation: `fadeUp 0.3s ${ri * 0.05}s ease both`,
+        }}>
+          {/* Planet glyph */}
+          <div style={{
+            width: GLYPH_W,
+            textAlign: "center",
+            fontSize: 18,
+            color: PLANET_COLORS[row.planet],
+            flexShrink: 0,
+            opacity: 0.8,
+          }}>
+            {PLANET_GLYPHS[row.planet]}
+          </div>
+
+          {/* Bar area */}
+          <div style={{
+            flex: 1,
+            position: "relative",
+            height: 20,
+            marginLeft: 8,
+          }}>
+            {/* Grid line */}
+            <div style={{
+              position: "absolute",
+              top: "50%",
+              left: 0,
+              right: 0,
+              height: 1,
+              background: "rgba(255,255,255,0.03)",
+            }}/>
+
+            {row.windows.map((w, wi) => {
+              const left = toPercent(w.start);
+              const right = toPercent(w.end);
+              const width = Math.max(right - left, 0.5);
+              const exactPos = toPercent(w.exact);
+
+              return (
+                <div key={wi} style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2 }}>
+                  {/* Bar */}
+                  <div style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: `linear-gradient(90deg, ${w.color}00, ${w.color}35, ${w.color}00)`,
+                    borderRadius: 4,
+                  }}/>
+                  {/* Exact marker */}
+                  <div style={{
+                    position: "absolute",
+                    left: `${((exactPos - left) / width) * 100}%`,
+                    top: 0,
+                    bottom: 0,
+                    width: 2,
+                    background: w.color,
+                    borderRadius: 1,
+                    opacity: 0.7,
+                  }}/>
+                  {/* Label */}
+                  {width > 4 && (
+                    <div style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      fontSize: 8,
+                      color: w.color,
+                      opacity: 0.7,
+                      whiteSpace: "nowrap",
+                      letterSpacing: "0.06em",
+                    }}>
+                      {w.label}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TransitsTab() {
   const { user } = useAuth();
   const [transitChart, setTransitChart] = useState(null);
@@ -377,6 +667,7 @@ export default function TransitsTab() {
   const positions = transitChart?.positions;
   const dateLabel = transitChart?.date || 'today';
   const patterns = detectPatterns(positions, natalChart?.positions);
+  const transitWindows = computeTransitWindows(positions, natalChart?.positions);
 
   async function openPatternDetail(pattern) {
     setSelectedPattern(pattern);
@@ -627,6 +918,37 @@ export default function TransitsTab() {
                   height: 1,
                   background: "rgba(255,255,255,0.06)",
                   margin: "10px auto 6px",
+                }}/>
+              </>
+            )}
+
+            {/* Transit Timeline */}
+            {transitWindows.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10,
+                  letterSpacing: "0.28em",
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.2)",
+                  textAlign: "center",
+                  marginTop: 10,
+                  marginBottom: 8,
+                }}>
+                  transit timeline
+                </div>
+                <div style={{
+                  background: "rgba(255,255,255,0.02)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 16,
+                  padding: "18px 16px 10px",
+                }}>
+                  <TransitTimeline windows={transitWindows} />
+                </div>
+                <div style={{
+                  width: 36,
+                  height: 1,
+                  background: "rgba(255,255,255,0.06)",
+                  margin: "14px auto 6px",
                 }}/>
               </>
             )}
