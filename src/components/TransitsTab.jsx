@@ -472,7 +472,10 @@ function TimelinePreview({ windows, onClick }) {
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
   const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
   const nowPct = toPercent(now);
-  const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd).slice(0, 8);
+  const visible = windows.filter(w =>
+    w.end >= rangeStart && w.start <= rangeEnd &&
+    w.peaks.some(p => p >= rangeStart && p <= rangeEnd)
+  ).slice(0, 8);
   const ticks = getCalendarTicks('quarter', rangeStart, rangeEnd, toPercent);
 
   if (visible.length === 0) return null;
@@ -545,7 +548,10 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
   const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
   const nowPct = toPercent(now);
-  const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd);
+  const visible = windows.filter(w =>
+    w.end >= rangeStart && w.start <= rangeEnd &&
+    w.peaks.some(p => p >= rangeStart && p <= rangeEnd)
+  );
   const ticks = getCalendarTicks(scale, rangeStart, rangeEnd, toPercent);
 
   const scaleLabels = {
