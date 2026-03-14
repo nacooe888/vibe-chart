@@ -22,7 +22,7 @@ const PLANET_ORDER = ['Moon','Sun','Mercury','Venus','Mars','Jupiter','Saturn','
 
 const PLANET_GLYPHS = {
   Moon:'☽', Sun:'☉', Mercury:'☿', Venus:'♀', Mars:'♂',
-  Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'⯓',
+  Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇',
   Chiron:'⚷', TrueNode:'☊',
 };
 
