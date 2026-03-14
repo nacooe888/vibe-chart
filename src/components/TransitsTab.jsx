@@ -139,6 +139,116 @@ function findAspects(planet, transitPos, natalPositions) {
   return results;
 }
 
+// ── Pattern Detection ────────────────────────────────────────────────────────
+
+function getAllAspects(transitPositions, natalPositions) {
+  if (!transitPositions || !natalPositions) return [];
+  const all = [];
+  const transitPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto'];
+  const natalPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','ASC','MC'];
+
+  transitPlanets.forEach(tp => {
+    const tpos = transitPositions[tp];
+    if (!tpos) return;
+    const tAbs = toAbs(tpos.sign, tpos.degree, tpos.minute);
+
+    natalPlanets.forEach(np => {
+      const npos = natalPositions[np];
+      if (!npos) return;
+      const nAbs = toAbs(npos.sign, npos.degree, npos.minute);
+
+      ASPECTS.forEach(asp => {
+        const orb = Math.abs(orbBetween(tAbs, nAbs) - asp.deg);
+        if (orb <= 5) {
+          all.push({ transit: tp, natal: np, aspect: asp, orb });
+        }
+      });
+    });
+  });
+  return all;
+}
+
+function detectPatterns(transitPositions, natalPositions) {
+  const patterns = [];
+  const allAspects = getAllAspects(transitPositions, natalPositions);
+  if (allAspects.length === 0) return patterns;
+
+  // 1. Mass activation — one transit planet aspecting 3+ natal points (orb ≤ 4)
+  const byTransit = {};
+  allAspects.filter(a => a.orb <= 4).forEach(a => {
+    if (!byTransit[a.transit]) byTransit[a.transit] = [];
+    byTransit[a.transit].push(a);
+  });
+  Object.entries(byTransit).forEach(([planet, aspects]) => {
+    if (aspects.length >= 3) {
+      aspects.sort((a, b) => a.orb - b.orb);
+      patterns.push({
+        type: 'mass-activation',
+        icon: '◎',
+        planet,
+        color: PLANET_COLORS[planet] || '#C49FFF',
+        title: `${planet} is activating ${aspects.length} natal points`,
+        subtitle: aspects.map(a => `${a.aspect.name} ${a.natal} (${a.orb.toFixed(1)}°)`).join(' · '),
+      });
+    }
+  });
+
+  // 2. Reciprocal transits — planet A aspects natal B AND planet B aspects natal A
+  const seen = new Set();
+  allAspects.filter(a => a.orb <= 5).forEach(a => {
+    const mirror = allAspects.find(b =>
+      b.transit === a.natal && b.natal === a.transit && b.orb <= 5
+    );
+    if (mirror) {
+      const key = [a.transit, a.natal].sort().join('-');
+      if (!seen.has(key)) {
+        seen.add(key);
+        patterns.push({
+          type: 'reciprocal',
+          icon: '⟡',
+          planet: a.transit,
+          color: PLANET_COLORS[a.transit] || '#C49FFF',
+          color2: PLANET_COLORS[a.natal] || '#C49FFF',
+          title: `${a.transit} ↔ ${a.natal} reciprocal`,
+          subtitle: `${a.transit} ${a.aspect.name} natal ${a.natal} (${a.orb.toFixed(1)}°) — ${a.natal} ${mirror.aspect.name} natal ${a.transit} (${mirror.orb.toFixed(1)}°)`,
+        });
+      }
+    }
+  });
+
+  // 3. Convergence — 2+ transit planets hitting the same natal point (orb ≤ 4)
+  const byNatal = {};
+  allAspects.filter(a => a.orb <= 4).forEach(a => {
+    if (!byNatal[a.natal]) byNatal[a.natal] = [];
+    byNatal[a.natal].push(a);
+  });
+  Object.entries(byNatal).forEach(([natal, aspects]) => {
+    if (aspects.length >= 2) {
+      aspects.sort((a, b) => a.orb - b.orb);
+      patterns.push({
+        type: 'convergence',
+        icon: '✦',
+        planet: natal,
+        color: PLANET_COLORS[natal] || '#C49FFF',
+        title: `${aspects.length} transits hitting natal ${natal}`,
+        subtitle: aspects.map(a => `${a.transit} ${a.aspect.name} (${a.orb.toFixed(1)}°)`).join(' · '),
+      });
+    }
+  });
+
+  // Sort: reciprocals first, then mass-activation, then convergence
+  const typeOrder = { 'reciprocal': 0, 'mass-activation': 1, 'convergence': 2 };
+  patterns.sort((a, b) => (typeOrder[a.type] ?? 9) - (typeOrder[b.type] ?? 9));
+
+  return patterns;
+}
+
+const PATTERN_LABELS = {
+  'mass-activation': 'mass activation',
+  'reciprocal': 'reciprocal transit',
+  'convergence': 'convergence',
+};
+
 export default function TransitsTab() {
   const { user } = useAuth();
   const [transitChart, setTransitChart] = useState(null);
@@ -247,6 +357,7 @@ export default function TransitsTab() {
 
   const positions = transitChart?.positions;
   const dateLabel = transitChart?.date || 'today';
+  const patterns = detectPatterns(positions, natalChart?.positions);
 
   return (
     <div style={{
@@ -315,6 +426,80 @@ export default function TransitsTab() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Patterns section */}
+            {patterns.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10,
+                  letterSpacing: "0.28em",
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.2)",
+                  textAlign: "center",
+                  marginBottom: 4,
+                }}>
+                  active patterns
+                </div>
+                {patterns.map((p, i) => (
+                  <div key={i} style={{
+                    background: p.type === 'reciprocal'
+                      ? `linear-gradient(135deg, ${p.color}12, ${p.color2}12)`
+                      : `${p.color}12`,
+                    border: `1px solid ${p.color}30`,
+                    borderRadius: 16,
+                    padding: "18px 20px",
+                    animation: `fadeUp 0.5s ${i * 0.08}s ease both`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                      <div style={{
+                        fontSize: 24,
+                        color: p.color,
+                        width: 32,
+                        textAlign: "center",
+                        flexShrink: 0,
+                      }}>
+                        {p.icon}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          fontSize: 9,
+                          letterSpacing: "0.2em",
+                          textTransform: "uppercase",
+                          color: p.color,
+                          opacity: 0.7,
+                          marginBottom: 4,
+                        }}>
+                          {PATTERN_LABELS[p.type]}
+                        </div>
+                        <div style={{
+                          fontSize: 16,
+                          color: "rgba(255,255,255,0.85)",
+                          letterSpacing: "0.04em",
+                          lineHeight: 1.4,
+                        }}>
+                          {p.title}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: 11,
+                      color: "rgba(255,255,255,0.35)",
+                      letterSpacing: "0.06em",
+                      lineHeight: 1.7,
+                      paddingLeft: 44,
+                    }}>
+                      {p.subtitle}
+                    </div>
+                  </div>
+                ))}
+                <div style={{
+                  width: 36,
+                  height: 1,
+                  background: "rgba(255,255,255,0.06)",
+                  margin: "10px auto 6px",
+                }}/>
+              </>
+            )}
+
             {PLANET_ORDER.map((planet, i) => {
               const pos = positions[planet];
               if (!pos) return null;
