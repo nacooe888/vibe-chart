@@ -271,19 +271,30 @@ const AVG_DAILY_MOTION = {
   Jupiter: 0.0831, Saturn: 0.0335, Uranus: 0.0119, Neptune: 0.006, Pluto: 0.004,
 };
 
-// Skip Moon (too fast to be useful on a monthly+ chart)
 const TIMELINE_PLANETS = ['Sun','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto'];
 
-// Impact score: slower planets + tighter orbs = higher impact
 const PLANET_WEIGHT = {
   Pluto: 10, Neptune: 9, Uranus: 8, Saturn: 7, Jupiter: 6,
   Mars: 4, Venus: 3, Mercury: 2, Sun: 2,
+};
+
+// Typical retrograde durations and station distances (degrees) for multi-pass arc estimation
+const RETRO_INFO = {
+  Mercury:  { rxDays: 21,  stationDeg: 12 },
+  Venus:    { rxDays: 42,  stationDeg: 15 },
+  Mars:     { rxDays: 75,  stationDeg: 18 },
+  Jupiter:  { rxDays: 120, stationDeg: 10 },
+  Saturn:   { rxDays: 138, stationDeg: 7 },
+  Uranus:   { rxDays: 150, stationDeg: 4 },
+  Neptune:  { rxDays: 158, stationDeg: 2.5 },
+  Pluto:    { rxDays: 160, stationDeg: 2.5 },
 };
 
 function computeTransitWindows(transitPositions, natalPositions, reciprocals) {
   if (!transitPositions || !natalPositions) return [];
   const windows = [];
   const now = new Date();
+  const DAY = 86400000;
   const natalPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','ASC','MC'];
   const reciprocalSet = new Set((reciprocals || []).map(r => r.title));
 
@@ -294,6 +305,7 @@ function computeTransitWindows(transitPositions, natalPositions, reciprocals) {
     const speed = AVG_DAILY_MOTION[tp] || 0.01;
     const isRx = tpos.retrograde === true;
     const maxOrb = OUTER_PLANETS.includes(tp) ? 5 : 2;
+    const retro = RETRO_INFO[tp];
 
     natalPlanets.forEach(np => {
       const npos = natalPositions[np];
@@ -304,119 +316,169 @@ function computeTransitWindows(transitPositions, natalPositions, reciprocals) {
         const orb = Math.abs(orbBetween(tAbs, nAbs) - asp.deg);
         if (orb > maxOrb) return;
 
-        const rxMultiplier = isRx ? 2.5 : 1;
         const daysPerDeg = 1 / speed;
         const daysToExact = orb * daysPerDeg;
-        const windowHalf = maxOrb * daysPerDeg * rxMultiplier;
 
+        // Determine current exact date
         const diff = signedAspectDiff(tAbs, nAbs, asp.deg);
         let exactDate;
         if (Math.abs(diff) < 0.15) {
           exactDate = now;
         } else if ((!isRx && diff < 0) || (isRx && diff > 0)) {
-          exactDate = new Date(now.getTime() + daysToExact * 86400000);
+          exactDate = new Date(now.getTime() + daysToExact * DAY);
         } else {
-          exactDate = new Date(now.getTime() - daysToExact * 86400000);
+          exactDate = new Date(now.getTime() - daysToExact * DAY);
         }
 
-        const start = new Date(exactDate.getTime() - windowHalf * 86400000);
-        const end = new Date(exactDate.getTime() + windowHalf * 86400000);
+        // Compute peaks array (multi-pass arc detection)
+        let peaks = [exactDate];
+        const isMultiPass = retro && ARC_PLANETS.includes(tp) && orb <= retro.stationDeg;
 
-        // Score: planet weight * (1 / orb) * aspect importance
+        if (isMultiPass) {
+          const halfRx = retro.rxDays * DAY;
+          if (isRx) {
+            // Currently Rx — this is pass 2, estimate pass 1 and 3
+            peaks = [
+              new Date(exactDate.getTime() - halfRx),
+              exactDate,
+              new Date(exactDate.getTime() + halfRx),
+            ];
+          } else if (diff < 0) {
+            // Direct, applying — this will be pass 1, Rx brings it back for 2, direct for 3
+            peaks = [
+              exactDate,
+              new Date(exactDate.getTime() + halfRx * 0.8),
+              new Date(exactDate.getTime() + halfRx * 1.6),
+            ];
+          } else {
+            // Direct, separating — could be pass 3 (final), or pass 1 with Rx coming
+            // If orb is very tight and separating, more likely pass 1 or 3
+            if (OUTER_PLANETS.includes(tp) && orb < 2) {
+              peaks = [
+                new Date(exactDate.getTime() - halfRx * 1.6),
+                new Date(exactDate.getTime() - halfRx * 0.8),
+                exactDate,
+              ];
+            }
+          }
+        }
+
+        // Window spans from first peak - windowHalf to last peak + windowHalf
+        const windowHalf = maxOrb * daysPerDeg * DAY;
+        const start = new Date(peaks[0].getTime() - windowHalf);
+        const end = new Date(peaks[peaks.length - 1].getTime() + windowHalf);
+
         const aspWeight = asp.deg === 0 ? 2 : asp.deg === 180 ? 1.5 : 1;
         const score = (PLANET_WEIGHT[tp] || 1) * (1 / Math.max(orb, 0.1)) * aspWeight;
 
-        // Check if this is part of a reciprocal pair
         const isReciprocal = reciprocalSet.has(`${tp} ↔ ${np} reciprocal`) ||
                              reciprocalSet.has(`${np} ↔ ${tp} reciprocal`);
 
-        const rowLabel = `${PLANET_GLYPHS[tp] || tp} ${asp.glyph} natal ${PLANET_GLYPHS[np] || np}`;
+        const rowLabel = `${PLANET_GLYPHS[tp] || tp} ${asp.glyph} ${PLANET_GLYPHS[np] || np}`;
         const rowName = `${tp} ${asp.name} ${np}`;
 
         windows.push({
           transit: tp, natal: np, aspect: asp, orb,
-          start, end, exact: exactDate,
+          start, end, peaks,
           color: PLANET_COLORS[tp],
           rowLabel, rowName,
-          isRx, score,
-          isReciprocal,
+          isRx, score, isReciprocal,
+          isMultiPass: peaks.length > 1,
         });
       });
     });
   });
 
-  // Sort by score descending, take top 15
   windows.sort((a, b) => b.score - a.score);
   return windows.slice(0, 15);
 }
 
 // ── Timeline Chart Component ────────────────────────────────────────────────
-// Now is ALWAYS centered. Range extends equally before/after now.
+// Month = current calendar month. Quarter = prev/current/next month. Year = full year.
 
-const SCALE_HALF_DAYS = { month: 15, quarter: 45, year: 182 };
-
-function getCenteredRange(scale) {
+function getCalendarRange(scale) {
   const now = new Date();
-  const half = SCALE_HALF_DAYS[scale] * 86400000;
-  return { start: new Date(now.getTime() - half), end: new Date(now.getTime() + half) };
+  if (scale === 'month') {
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+    };
+  } else if (scale === 'quarter') {
+    // Current month in the middle: prev month, current month, next month
+    return {
+      start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 2, 0),
+    };
+  } else {
+    return {
+      start: new Date(now.getFullYear(), 0, 1),
+      end: new Date(now.getFullYear(), 11, 31),
+    };
+  }
 }
 
-function getCenteredTicks(scale, rangeStart, rangeEnd, toPercent) {
+function getCalendarTicks(scale, rangeStart, rangeEnd, toPercent) {
   const ticks = [];
-  const totalDays = (rangeEnd - rangeStart) / 86400000;
-
   if (scale === 'month') {
-    // tick every ~5 days
-    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 5)) {
+    for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 7)) {
       const t = new Date(d);
-      ticks.push({ pos: toPercent(t), label: t.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) });
+      ticks.push({ pos: toPercent(t), label: `${t.getDate()}` });
     }
   } else if (scale === 'quarter') {
-    // tick on 1st of each month
-    const start = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
-    for (let d = new Date(start); d <= rangeEnd; d.setMonth(d.getMonth() + 1)) {
-      const t = new Date(d);
-      if (t >= rangeStart) ticks.push({ pos: toPercent(t), label: t.toLocaleDateString('en-US', { month: 'short' }) });
+    for (let m = -1; m <= 1; m++) {
+      const now = new Date();
+      const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
+      ticks.push({ pos: toPercent(d), label: d.toLocaleDateString('en-US', { month: 'short' }) });
     }
   } else {
-    // tick on 1st of each month, short labels
-    const start = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
-    for (let d = new Date(start); d <= rangeEnd; d.setMonth(d.getMonth() + 1)) {
-      const t = new Date(d);
-      if (t >= rangeStart) ticks.push({ pos: toPercent(t), label: t.toLocaleDateString('en-US', { month: 'short' }).charAt(0) });
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(rangeStart.getFullYear(), m, 1);
+      ticks.push({ pos: toPercent(d), label: d.toLocaleDateString('en-US', { month: 'short' }).slice(0, 3) });
     }
   }
   return ticks;
 }
 
-// Build an SVG gradient ID and element for a bar that peaks at the exact point
-function barGradient(id, color, exactPct) {
-  // exactPct is 0-100 within the bar, that's the peak (full opacity)
-  // edges fade to 0
-  const peak = Math.max(2, Math.min(98, exactPct));
-  return (
-    <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stopColor={color} stopOpacity="0" />
-      <stop offset={`${peak}%`} stopColor={color} stopOpacity="0.5" />
-      <stop offset="100%" stopColor={color} stopOpacity="0" />
-    </linearGradient>
-  );
+// Build SVG gradient with multiple peaks for multi-pass arcs
+function multiPeakGradient(id, color, peakPcts) {
+  // Build stops: start at 0 opacity, rise to each peak, dip between peaks, end at 0
+  const stops = [];
+  stops.push(<stop key="s" offset="0%" stopColor={color} stopOpacity="0" />);
+
+  if (peakPcts.length === 1) {
+    const p = Math.max(2, Math.min(98, peakPcts[0]));
+    stops.push(<stop key="p0" offset={`${p}%`} stopColor={color} stopOpacity="0.5" />);
+  } else {
+    peakPcts.forEach((p, i) => {
+      const clamped = Math.max(2, Math.min(98, p));
+      // Dip before peak (unless first)
+      if (i > 0) {
+        const mid = (peakPcts[i - 1] + clamped) / 2;
+        stops.push(<stop key={`d${i}`} offset={`${mid}%`} stopColor={color} stopOpacity="0.08" />);
+      }
+      stops.push(<stop key={`p${i}`} offset={`${clamped}%`} stopColor={color} stopOpacity="0.5" />);
+    });
+  }
+
+  stops.push(<stop key="e" offset="100%" stopColor={color} stopOpacity="0" />);
+
+  return <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="0%">{stops}</linearGradient>;
 }
 
-// Mini preview — compact tappable Gantt, now centered
+// Mini preview — compact tappable Gantt
 function TimelinePreview({ windows, onClick }) {
   const now = new Date();
-  const { start: rangeStart, end: rangeEnd } = getCenteredRange('quarter');
+  const { start: rangeStart, end: rangeEnd } = getCalendarRange('quarter');
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
   const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
+  const nowPct = toPercent(now);
   const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd).slice(0, 8);
-  const ticks = getCenteredTicks('quarter', rangeStart, rangeEnd, toPercent);
+  const ticks = getCalendarTicks('quarter', rangeStart, rangeEnd, toPercent);
 
   if (visible.length === 0) return null;
 
-  const LABEL_W = 90;
+  const LABEL_W = 70;
   const ROW_H = 20;
-  const svgId = 'prev';
 
   return (
     <div onClick={onClick} style={{
@@ -424,7 +486,6 @@ function TimelinePreview({ windows, onClick }) {
       border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16,
       padding: "14px 14px 8px", transition: "border-color 0.2s",
     }}>
-      {/* Time axis */}
       <div style={{ position: "relative", marginLeft: LABEL_W + 6, height: 14, marginBottom: 4 }}>
         {ticks.map((t, i) => (
           <div key={i} style={{
@@ -434,21 +495,17 @@ function TimelinePreview({ windows, onClick }) {
         ))}
       </div>
 
-      {/* Rows */}
       <div style={{ position: "relative" }}>
-        {/* Now line at center */}
-        <div style={{
-          position: "absolute", left: LABEL_W + 6, right: 0, top: 0, bottom: 0, pointerEvents: "none",
-        }}>
-          <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.12)" }}/>
+        <div style={{ position: "absolute", left: LABEL_W + 6, right: 0, top: 0, bottom: 0, pointerEvents: "none" }}>
+          <div style={{ position: "absolute", left: `${nowPct}%`, top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.1)" }}/>
         </div>
 
         {visible.map((w, i) => {
           const left = toPercent(w.start);
           const right = toPercent(w.end);
           const width = Math.max(right - left, 0.8);
-          const exactPct = width > 0 ? ((toPercent(w.exact) - left) / width) * 100 : 50;
-          const gId = `${svgId}-${i}`;
+          const peakPcts = w.peaks.map(p => width > 0 ? ((toPercent(p) - left) / width) * 100 : 50);
+          const gId = `prev-${i}`;
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", height: ROW_H }}>
               <div style={{
@@ -459,9 +516,9 @@ function TimelinePreview({ windows, onClick }) {
               <div style={{ flex: 1, position: "relative", height: 10, marginLeft: 6 }}>
                 <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.02)" }}/>
                 <svg style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 0, height: "100%" }} preserveAspectRatio="none" viewBox="0 0 100 10">
-                  <defs>{barGradient(gId, w.color, exactPct)}</defs>
+                  <defs>{multiPeakGradient(gId, w.color, peakPcts)}</defs>
                   <rect x="0" y="1" width="100" height="8" rx="3" fill={`url(#${gId})`} />
-                  <line x1={exactPct} y1="0" x2={exactPct} y2="10" stroke={w.color} strokeWidth="1.5" opacity="0.8" />
+                  {peakPcts.map((p, j) => <line key={j} x1={p} y1="0" x2={p} y2="10" stroke={w.color} strokeWidth="1" opacity="0.7" />)}
                 </svg>
               </div>
             </div>
@@ -474,24 +531,31 @@ function TimelinePreview({ windows, onClick }) {
         color: "rgba(255,255,255,0.2)", marginTop: 8, paddingTop: 6,
         borderTop: "1px solid rgba(255,255,255,0.04)",
       }}>
-        tap to expand · {windows.length} active transits
+        tap to expand · {windows.length} transits
       </div>
     </div>
   );
 }
 
-// Full-screen detailed Gantt — now always centered, bars fade to peak
-function TimelineFull({ windows, onBack }) {
+// Full-screen Gantt — clickable rows, multi-peak arcs, calendar ranges
+function TimelineFull({ windows, onBack, onSelectTransit }) {
   const [scale, setScale] = useState('quarter');
   const now = new Date();
-  const { start: rangeStart, end: rangeEnd } = getCenteredRange(scale);
+  const { start: rangeStart, end: rangeEnd } = getCalendarRange(scale);
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
   const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
+  const nowPct = toPercent(now);
   const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd);
-  const ticks = getCenteredTicks(scale, rangeStart, rangeEnd, toPercent);
+  const ticks = getCalendarTicks(scale, rangeStart, rangeEnd, toPercent);
 
-  const LABEL_W = 140;
-  const ROW_H = 48;
+  const scaleLabels = {
+    month: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    quarter: 'this quarter',
+    year: `${new Date().getFullYear()}`,
+  };
+
+  const LABEL_W = 120;
+  const ROW_H = 52;
 
   return (
     <div style={{
@@ -513,14 +577,11 @@ function TimelineFull({ windows, onBack }) {
             transit timeline
           </div>
           <h1 style={{ fontWeight: 300, fontSize: 34, margin: 0, letterSpacing: "0.06em" }}>overlap</h1>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", marginTop: 8, fontStyle: "italic" }}>
-            top {windows.length} transits by impact
-          </div>
           <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.1)", margin: "15px auto 0" }}/>
         </div>
 
         {/* Scale toggle */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 6 }}>
           {['month', 'quarter', 'year'].map(s => (
             <button key={s} onClick={() => setScale(s)} style={{
               padding: "6px 18px", borderRadius: 99,
@@ -532,42 +593,44 @@ function TimelineFull({ windows, onBack }) {
             }}>{s}</button>
           ))}
         </div>
+        <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.2)", marginBottom: 20, fontStyle: "italic" }}>
+          {scaleLabels[scale]} · {visible.length} active
+        </div>
 
-        {/* Chart container */}
+        {/* Chart */}
         <div style={{
           background: "rgba(255,255,255,0.02)",
           border: "1px solid rgba(255,255,255,0.06)",
           borderRadius: 18,
-          padding: "20px 18px 14px",
+          padding: "20px 16px 14px",
         }}>
-          {/* Time axis header */}
-          <div style={{ position: "relative", marginLeft: LABEL_W + 12, height: 22, marginBottom: 4 }}>
+          {/* Time axis */}
+          <div style={{ position: "relative", marginLeft: LABEL_W + 10, height: 22, marginBottom: 6 }}>
             {ticks.map((t, i) => (
               <div key={i} style={{
-                position: "absolute", left: `${t.pos}%`, fontSize: 11,
-                color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em",
+                position: "absolute", left: `${t.pos}%`, fontSize: 10,
+                color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em",
                 transform: "translateX(-50%)", whiteSpace: "nowrap",
               }}>{t.label}</div>
             ))}
-            {/* "now" label always at 50% */}
-            <div style={{
-              position: "absolute", left: "50%", top: -2,
-              transform: "translateX(-50%)", fontSize: 8, letterSpacing: "0.15em",
-              color: "rgba(255,255,255,0.5)", textTransform: "uppercase",
-            }}>now</div>
           </div>
 
           {/* Rows */}
           <div style={{ position: "relative" }}>
-            {/* Now line always at center */}
+            {/* Now line */}
             <div style={{
               position: "absolute", top: 0, bottom: 0,
-              left: LABEL_W + 12, right: 0, pointerEvents: "none",
+              left: LABEL_W + 10, right: 0, pointerEvents: "none",
             }}>
               <div style={{
-                position: "absolute", left: "50%", top: 0, bottom: 0,
-                width: 1, background: "rgba(255,255,255,0.18)", zIndex: 2,
+                position: "absolute", left: `${nowPct}%`, top: -22, bottom: 0,
+                width: 1, background: "rgba(255,255,255,0.15)", zIndex: 2,
               }}/>
+              <div style={{
+                position: "absolute", left: `${nowPct}%`, top: -24,
+                transform: "translateX(-50%)", fontSize: 8, letterSpacing: "0.12em",
+                color: "rgba(255,255,255,0.4)", textTransform: "uppercase", zIndex: 3,
+              }}>now</div>
             </div>
 
             {visible.length === 0 ? (
@@ -578,50 +641,52 @@ function TimelineFull({ windows, onBack }) {
               const left = toPercent(w.start);
               const right = toPercent(w.end);
               const width = Math.max(right - left, 0.8);
-              const exactPct = width > 0 ? ((toPercent(w.exact) - left) / width) * 100 : 50;
-              const exactLabel = w.exact.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              const peakPcts = w.peaks
+                .filter(p => p >= rangeStart && p <= rangeEnd)
+                .map(p => width > 0 ? ((toPercent(p) - left) / width) * 100 : 50);
               const gId = `full-${ri}`;
 
               return (
-                <div key={ri} style={{
+                <div key={ri} onClick={() => onSelectTransit && onSelectTransit(w)} style={{
                   display: "flex", alignItems: "center", height: ROW_H,
                   borderTop: ri > 0 ? "1px solid rgba(255,255,255,0.03)" : "none",
                   animation: `fadeUp 0.3s ${ri * 0.03}s ease both`,
+                  cursor: "pointer",
                 }}>
                   {/* Label */}
-                  <div style={{ width: LABEL_W, flexShrink: 0, paddingRight: 10 }}>
+                  <div style={{ width: LABEL_W, flexShrink: 0, paddingRight: 8 }}>
                     <div style={{
-                      fontSize: 13, color: w.color, letterSpacing: "0.04em",
-                      lineHeight: 1.3, display: "flex", alignItems: "center", gap: 6,
+                      fontSize: 14, color: w.color, letterSpacing: "0.04em",
+                      lineHeight: 1.3, display: "flex", alignItems: "center", gap: 5,
                     }}>
                       <span>{w.rowLabel}</span>
                       {w.isReciprocal && <span style={{ fontSize: 9, opacity: 0.5 }}>↔</span>}
                     </div>
                     <div style={{
-                      fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.08em", marginTop: 2,
+                      fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.06em", marginTop: 2,
                     }}>
-                      {w.orb.toFixed(1)}° orb{w.isRx ? ' · Rx' : ''}
+                      {w.orb.toFixed(1)}° orb{w.isRx ? ' · Rx' : ''}{w.isMultiPass ? ' · arc' : ''}
                     </div>
                   </div>
 
                   {/* Bar */}
-                  <div style={{ flex: 1, position: "relative", height: 28, marginLeft: 12 }}>
+                  <div style={{ flex: 1, position: "relative", height: 30, marginLeft: 10 }}>
                     <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.025)" }}/>
-                    <svg style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, height: 24 }} preserveAspectRatio="none" viewBox="0 0 100 24">
-                      <defs>{barGradient(gId, w.color, exactPct)}</defs>
+                    <svg style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 3, height: 24 }} preserveAspectRatio="none" viewBox="0 0 100 24">
+                      <defs>{multiPeakGradient(gId, w.color, peakPcts)}</defs>
                       <rect x="0" y="2" width="100" height="20" rx="5" fill={`url(#${gId})`} />
-                      <line x1={exactPct} y1="0" x2={exactPct} y2="24" stroke={w.color} strokeWidth="1.5" opacity="0.9" />
+                      {peakPcts.map((p, j) => (
+                        <line key={j} x1={p} y1="0" x2={p} y2="24" stroke={w.color} strokeWidth="1.5" opacity="0.85" />
+                      ))}
                     </svg>
-                    {/* Exact date label below bar */}
-                    {width > 4 && (
-                      <div style={{
-                        position: "absolute",
-                        left: `${toPercent(w.exact)}%`,
-                        top: 28,
-                        transform: "translateX(-50%)",
-                        fontSize: 8, color: w.color, opacity: 0.45, whiteSpace: "nowrap",
-                      }}>{exactLabel}</div>
-                    )}
+                    {/* Peak date labels */}
+                    {w.peaks.filter(p => p >= rangeStart && p <= rangeEnd).map((p, j) => (
+                      <div key={j} style={{
+                        position: "absolute", left: `${toPercent(p)}%`, top: 29,
+                        transform: "translateX(-50%)", fontSize: 7, color: w.color,
+                        opacity: 0.4, whiteSpace: "nowrap",
+                      }}>{p.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                    ))}
                   </div>
                 </div>
               );
@@ -632,10 +697,10 @@ function TimelineFull({ windows, onBack }) {
         {/* Legend */}
         <div style={{
           marginTop: 20, textAlign: "center", fontSize: 10,
-          color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", lineHeight: 2.2,
+          color: "rgba(255,255,255,0.2)", letterSpacing: "0.08em", lineHeight: 2.2,
         }}>
-          line = peak (exact aspect) · bar fades from edges to peak<br/>
-          ↔ = reciprocal transit · Rx = retrograde
+          line = exact hit · multiple lines = multi-pass arc<br/>
+          tap any transit for details
         </div>
       </div>
 
@@ -655,7 +720,11 @@ export default function TransitsTab() {
   const [patternDetail, setPatternDetail] = useState(null);
   const [patternLoading, setPatternLoading] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [selectedTransit, setSelectedTransit] = useState(null);
+  const [transitDetail, setTransitDetail] = useState(null);
+  const [transitDetailLoading, setTransitDetailLoading] = useState(false);
   const patternCache = useRef({});
+  const transitDetailCache = useRef({});
 
   useEffect(() => {
     if (!user?.id) return;
@@ -792,9 +861,128 @@ export default function TransitsTab() {
     setPatternLoading(false);
   }
 
+  async function openTransitDetail(w) {
+    setSelectedTransit(w);
+    setShowTimeline(false);
+    const cacheKey = `${w.transit}-${w.aspect.name}-${w.natal}`;
+    if (transitDetailCache.current[cacheKey]) {
+      setTransitDetail(transitDetailCache.current[cacheKey]);
+      return;
+    }
+    setTransitDetail(null);
+    setTransitDetailLoading(true);
+    try {
+      const skyCtx = getSkyContext(natalChart, transitChart);
+      const transitName = `${w.transit} ${w.aspect.name} ${w.natal}`;
+      const prompt = `You are a warm, direct astrologer. Give a concise reading for this transit.
+
+Transit: ${transitName} (${w.orb.toFixed(1)}° orb${w.isRx ? ', retrograde' : ''}${w.isMultiPass ? ', multi-pass arc' : ''})
+
+${skyCtx}
+
+Respond with ONLY valid JSON:
+{
+  "duration": "How long this transit is active — when it entered orb and when it fades. 1-2 sentences.",
+  "rarity": "How rare this specific aspect is. Be honest. 1-2 sentences.",
+  "interpretation": "What this transit means experientially. Warm, direct, no filler. 2-3 sentences.",
+  "howToWork": "Practical suggestions for working with this energy. 2-3 sentences."
+}`;
+      const res = await claudeFetch({
+        model: "claude-haiku-4-5-20251001",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 600,
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || "{}";
+      const json = JSON.parse(text.replace(/```json|```/g, "").trim());
+      transitDetailCache.current[cacheKey] = json;
+      setTransitDetail(json);
+    } catch (e) {
+      console.error('[transit detail]', e);
+      setTransitDetail({ error: true });
+    }
+    setTransitDetailLoading(false);
+  }
+
   // Timeline full view
   if (showTimeline) {
-    return <TimelineFull windows={transitWindows} onBack={() => setShowTimeline(false)} />;
+    return <TimelineFull windows={transitWindows} onBack={() => setShowTimeline(false)} onSelectTransit={openTransitDetail} />;
+  }
+
+  // Transit detail from timeline
+  if (selectedTransit) {
+    const w = selectedTransit;
+    const color = w.color;
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "radial-gradient(ellipse at 40% 25%, rgba(160,138,255,0.1) 0%, transparent 55%), #050510",
+        fontFamily: "'Cormorant Garamond', serif",
+        color: "white",
+        padding: "36px 20px 100px",
+      }}>
+        <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          <button onClick={() => { setSelectedTransit(null); setTransitDetail(null); setShowTimeline(true); }}
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            ← back to timeline
+          </button>
+
+          <div style={{ textAlign: "center", marginBottom: 30 }}>
+            <div style={{ fontSize: 28, color, marginBottom: 8 }}>{PLANET_GLYPHS[w.transit]} {w.aspect.glyph} {PLANET_GLYPHS[w.natal]}</div>
+            <h2 style={{ fontWeight: 300, fontSize: 24, margin: 0, letterSpacing: "0.04em", lineHeight: 1.4 }}>
+              {w.transit} {w.aspect.name} {w.natal}
+            </h2>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 10, letterSpacing: "0.06em" }}>
+              {w.orb.toFixed(1)}° orb{w.isRx ? ' · retrograde' : ''}{w.isMultiPass ? ' · multi-pass arc' : ''}
+            </div>
+            {w.isMultiPass && (
+              <div style={{ fontSize: 11, color, opacity: 0.5, marginTop: 6, letterSpacing: "0.08em" }}>
+                exact hits: {w.peaks.map(p => p.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })).join(' · ')}
+              </div>
+            )}
+          </div>
+
+          {transitDetailLoading ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
+              <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading this transit...</div>
+            </div>
+          ) : transitDetail?.error ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+              couldn't load detail — try again later
+            </div>
+          ) : transitDetail ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {[
+                { key: 'duration', label: 'how long it\'s active', icon: '◷' },
+                { key: 'rarity', label: 'how rare this is', icon: '◇' },
+                { key: 'interpretation', label: 'what it means', icon: '◎' },
+                { key: 'howToWork', label: 'how to work with it', icon: '⟡' },
+              ].map(({ key, label, icon }, i) => (
+                <div key={key} style={{
+                  background: `${color}08`,
+                  border: `1px solid ${color}15`,
+                  borderRadius: 14,
+                  padding: "16px 20px",
+                  animation: `fadeUp 0.4s ${i * 0.1}s ease both`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontSize: 16, color, opacity: 0.6 }}>{icon}</span>
+                    <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color, opacity: 0.6 }}>{label}</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.8, letterSpacing: "0.02em" }}>
+                    {transitDetail[key]}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <style>{`
+          @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+        `}</style>
+      </div>
+    );
   }
 
   // Pattern detail overlay
