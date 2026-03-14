@@ -641,8 +641,12 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
               const left = toPercent(w.start);
               const right = toPercent(w.end);
               const width = Math.max(right - left, 0.8);
-              const peakPcts = w.peaks
-                .filter(p => p >= rangeStart && p <= rangeEnd)
+              // All peaks for gradient (clamped, never filtered out)
+              const allPeakPcts = w.peaks
+                .map(p => width > 0 ? ((toPercent(p) - left) / width) * 100 : 50);
+              // Only peaks in range for date labels and peak lines
+              const visiblePeaks = w.peaks.filter(p => p >= rangeStart && p <= rangeEnd);
+              const visiblePeakPcts = visiblePeaks
                 .map(p => width > 0 ? ((toPercent(p) - left) / width) * 100 : 50);
               const gId = `full-${ri}`;
 
@@ -673,14 +677,14 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
                   <div style={{ flex: 1, position: "relative", height: 30, marginLeft: 10 }}>
                     <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.025)" }}/>
                     <svg style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 3, height: 24 }} preserveAspectRatio="none" viewBox="0 0 100 24">
-                      <defs>{multiPeakGradient(gId, w.color, peakPcts)}</defs>
+                      <defs>{multiPeakGradient(gId, w.color, allPeakPcts)}</defs>
                       <rect x="0" y="2" width="100" height="20" rx="5" fill={`url(#${gId})`} />
-                      {peakPcts.map((p, j) => (
+                      {visiblePeakPcts.map((p, j) => (
                         <line key={j} x1={p} y1="0" x2={p} y2="24" stroke={w.color} strokeWidth="1.5" opacity="0.85" />
                       ))}
                     </svg>
-                    {/* Peak date labels */}
-                    {w.peaks.filter(p => p >= rangeStart && p <= rangeEnd).map((p, j) => (
+                    {/* Peak date labels — only for peaks within view */}
+                    {visiblePeaks.map((p, j) => (
                       <div key={j} style={{
                         position: "absolute", left: `${toPercent(p)}%`, top: 29,
                         transform: "translateX(-50%)", fontSize: 7, color: w.color,
