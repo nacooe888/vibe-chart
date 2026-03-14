@@ -1,7 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { loadChart, saveChart } from "../lib/chartStorage";
 import { loadProfile } from "../lib/profileStorage";
+import { buildSkyContext, getSkyContext } from "./EnergyReport";
+import { patternDetailPrompt } from "../lib/prompts";
+import { supabase } from "../lib/supabase";
+
+async function claudeFetch(body) {
+  const { data: { session } } = await supabase.auth.getSession();
+  return fetch("/api/claude", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+}
 
 const PLANET_ORDER = ['Moon','Sun','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto'];
 
@@ -254,6 +269,10 @@ export default function TransitsTab() {
   const [transitChart, setTransitChart] = useState(null);
   const [natalChart, setNatalChart] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedPattern, setSelectedPattern] = useState(null);
+  const [patternDetail, setPatternDetail] = useState(null);
+  const [patternLoading, setPatternLoading] = useState(false);
+  const patternCache = useRef({});
 
   useEffect(() => {
     if (!user?.id) return;
@@ -359,6 +378,114 @@ export default function TransitsTab() {
   const dateLabel = transitChart?.date || 'today';
   const patterns = detectPatterns(positions, natalChart?.positions);
 
+  async function openPatternDetail(pattern) {
+    setSelectedPattern(pattern);
+    const cacheKey = `${pattern.type}-${pattern.planet}-${pattern.title}`;
+    if (patternCache.current[cacheKey]) {
+      setPatternDetail(patternCache.current[cacheKey]);
+      return;
+    }
+    setPatternDetail(null);
+    setPatternLoading(true);
+    try {
+      const skyCtx = getSkyContext(natalChart, transitChart);
+      const prompt = patternDetailPrompt(pattern, skyCtx);
+      const res = await claudeFetch({
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 600,
+      });
+      const text = await res.text();
+      const json = JSON.parse(text);
+      patternCache.current[cacheKey] = json;
+      setPatternDetail(json);
+    } catch (e) {
+      console.error('[pattern detail]', e);
+      setPatternDetail({ error: true });
+    }
+    setPatternLoading(false);
+  }
+
+  // Pattern detail overlay
+  if (selectedPattern) {
+    const p = selectedPattern;
+    const color = p.color;
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "radial-gradient(ellipse at 40% 25%, rgba(160,138,255,0.1) 0%, transparent 55%), #050510",
+        fontFamily: "'Cormorant Garamond', serif",
+        color: "white",
+        padding: "36px 20px 100px",
+      }}>
+        <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          <button onClick={() => { setSelectedPattern(null); setPatternDetail(null); }}
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            ← back to sky
+          </button>
+
+          <div style={{ textAlign: "center", marginBottom: 30 }}>
+            <div style={{ fontSize: 32, color, marginBottom: 8 }}>{p.icon}</div>
+            <div style={{
+              fontSize: 9,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color,
+              opacity: 0.7,
+              marginBottom: 10,
+            }}>
+              {PATTERN_LABELS[p.type]}
+            </div>
+            <h2 style={{ fontWeight: 300, fontSize: 26, margin: 0, letterSpacing: "0.04em", lineHeight: 1.4 }}>
+              {p.title}
+            </h2>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 10, letterSpacing: "0.06em", lineHeight: 1.7 }}>
+              {p.subtitle}
+            </div>
+          </div>
+
+          {patternLoading ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
+              <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading this pattern...</div>
+            </div>
+          ) : patternDetail?.error ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+              couldn't load detail — try again later
+            </div>
+          ) : patternDetail ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {[
+                { key: 'duration', label: 'how long it\'s active', icon: '◷' },
+                { key: 'rarity', label: 'how rare this is', icon: '◇' },
+                { key: 'interpretation', label: 'what it means', icon: '◎' },
+                { key: 'howToWork', label: 'how to work with it', icon: '⟡' },
+              ].map(({ key, label, icon }, i) => (
+                <div key={key} style={{
+                  background: `${color}08`,
+                  border: `1px solid ${color}15`,
+                  borderRadius: 14,
+                  padding: "16px 20px",
+                  animation: `fadeUp 0.4s ${i * 0.1}s ease both`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontSize: 16, color, opacity: 0.6 }}>{icon}</span>
+                    <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color, opacity: 0.6 }}>{label}</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.8, letterSpacing: "0.02em" }}>
+                    {patternDetail[key]}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <style>{`
+          @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -440,7 +567,7 @@ export default function TransitsTab() {
                   active patterns
                 </div>
                 {patterns.map((p, i) => (
-                  <div key={i} style={{
+                  <div key={i} onClick={() => openPatternDetail(p)} style={{
                     background: p.type === 'reciprocal'
                       ? `linear-gradient(135deg, ${p.color}12, ${p.color2}12)`
                       : `${p.color}12`,
@@ -448,6 +575,8 @@ export default function TransitsTab() {
                     borderRadius: 16,
                     padding: "18px 20px",
                     animation: `fadeUp 0.5s ${i * 0.08}s ease both`,
+                    cursor: "pointer",
+                    transition: "border-color 0.2s",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
                       <div style={{

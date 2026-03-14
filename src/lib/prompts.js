@@ -217,3 +217,33 @@ Generate four ritual paths. Respond with ONLY valid JSON:
 
 Include ALL four paths (honor, release, shift, channel). Each step specific, somatic, doable right now. Informed by the active transits. Not vague. Not toxic positivity.`;
 }
+
+// ── Pattern Detail (mass activation, reciprocal, convergence) ───────────────
+export function patternDetailPrompt(pattern, skyContext) {
+  const typeDescriptions = {
+    'mass-activation': `A single transit planet (${pattern.planet}) is currently aspecting multiple natal points simultaneously: ${pattern.subtitle}. This means one planetary energy is touching many parts of the chart at once.`,
+    'reciprocal': `Two planets are in a reciprocal transit — each one is aspecting the other's natal position: ${pattern.subtitle}. This creates a feedback loop between the two planetary energies.`,
+    'convergence': `Multiple transit planets are all aspecting the same natal point (natal ${pattern.planet}): ${pattern.subtitle}. This natal placement is being activated from multiple directions at once.`,
+  };
+
+  return `You are a warm, direct astrologer. Analyze this transit pattern.
+
+Pattern type: ${pattern.type} — ${PATTERN_LABELS[pattern.type] || pattern.type}
+${typeDescriptions[pattern.type] || pattern.subtitle}
+
+${skyContext}
+
+Respond with ONLY valid JSON, no markdown:
+{
+  "duration": "How long this pattern is active — be specific about when it started and when it fades. For outer planets this could be months. For inner planets, days or weeks. 1-2 sentences.",
+  "rarity": "How rare or common this specific pattern configuration is. Be honest — some patterns happen regularly, others are once-in-a-decade. 1-2 sentences.",
+  "interpretation": "What this pattern means experientially — what does it feel like, what is it doing. Warm, direct, no filler. 2-3 sentences max.",
+  "howToWork": "Practical suggestions for working with this pattern. Specific, embodied, doable. 2-3 sentences max."
+}`;
+}
+
+const PATTERN_LABELS = {
+  'mass-activation': 'mass activation',
+  'reciprocal': 'reciprocal transit',
+  'convergence': 'convergence',
+};
