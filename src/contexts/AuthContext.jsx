@@ -10,6 +10,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [passwordRecovery, setPasswordRecovery] = useState(false)
 
   useEffect(() => {
     // Get initial session
@@ -19,8 +20,11 @@ export function AuthProvider({ children }) {
     })
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -56,6 +60,12 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  async function updatePassword(newPassword) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
+    setPasswordRecovery(false)
+  }
+
   async function deleteAccount() {
     // Delete user data first (RLS policies will cascade, but explicit is safer)
     const { error } = await supabase.rpc('delete_user_account')
@@ -70,6 +80,8 @@ export function AuthProvider({ children }) {
     signIn,
     signOut,
     resetPassword,
+    updatePassword,
+    passwordRecovery,
     deleteAccount,
   }
 

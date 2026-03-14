@@ -131,8 +131,139 @@ function MainApp() {
   )
 }
 
+function ResetPasswordScreen() {
+  const { updatePassword } = useAuth()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError(null)
+    if (password.length < 6) { setError('password must be at least 6 characters'); return }
+    if (password !== confirm) { setError('passwords do not match'); return }
+    setSaving(true)
+    try {
+      await updatePassword(password)
+      setDone(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = {
+    width: '100%',
+    padding: '14px 18px',
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    color: 'white',
+    fontFamily: "'Cormorant Garamond', serif",
+    fontSize: 16,
+    marginBottom: 14,
+    boxSizing: 'border-box',
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'radial-gradient(ellipse at 40% 35%, rgba(196,159,255,0.1) 0%, transparent 55%), #050510',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+      fontFamily: "'Cormorant Garamond', serif",
+    }}>
+      <div style={{ width: '100%', maxWidth: 380 }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <h1 style={{ fontWeight: 300, fontSize: 36, margin: 0, letterSpacing: '0.06em', color: 'white' }}>
+            {done ? 'password updated' : 'set new password'}
+          </h1>
+        </div>
+
+        {done ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#B0FF7F', fontSize: 14, marginBottom: 24, fontStyle: 'italic' }}>
+              your password has been updated
+            </div>
+            <button
+              onClick={() => window.location.href = '/'}
+              style={{
+                padding: '14px 24px',
+                borderRadius: 99,
+                border: '1px solid rgba(196,159,255,0.5)',
+                background: 'rgba(196,159,255,0.15)',
+                color: 'white',
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 14,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              enter the map
+            </button>
+          </div>
+        ) : (
+          <div style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 20,
+            padding: '32px 28px',
+          }}>
+            <form onSubmit={handleSubmit}>
+              <input
+                type="password"
+                placeholder="new password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={6}
+                style={inputStyle}
+              />
+              <input
+                type="password"
+                placeholder="confirm password"
+                value={confirm}
+                onChange={e => setConfirm(e.target.value)}
+                required
+                style={inputStyle}
+              />
+              {error && (
+                <div style={{ color: '#FF7F9B', fontSize: 13, marginBottom: 14, textAlign: 'center', fontStyle: 'italic' }}>
+                  {error}
+                </div>
+              )}
+              <button type="submit" disabled={saving} style={{
+                width: '100%',
+                padding: '14px 24px',
+                borderRadius: 99,
+                border: '1px solid rgba(196,159,255,0.5)',
+                background: 'rgba(196,159,255,0.15)',
+                color: 'white',
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 14,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                cursor: saving ? 'wait' : 'pointer',
+              }}>
+                {saving ? '...' : 'update password'}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function AppContent() {
-  const { user, loading } = useAuth()
+  const { user, loading, passwordRecovery } = useAuth()
   const [profileLoading, setProfileLoading] = useState(true)
   const [hasProfile, setHasProfile] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -183,6 +314,10 @@ function AppContent() {
 
   if (!user) {
     return <Auth />
+  }
+
+  if (passwordRecovery) {
+    return <ResetPasswordScreen />
   }
 
   if (showOnboarding) {
