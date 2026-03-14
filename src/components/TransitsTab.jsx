@@ -344,27 +344,19 @@ function computeTransitWindows(transitPositions, natalPositions) {
 
 // ── Timeline Chart Component ────────────────────────────────────────────────
 
-function TransitTimeline({ windows }) {
-  const [scale, setScale] = useState('quarter');
-
+function useTimelineData(windows, scale) {
   const now = new Date();
-  let rangeStart, rangeEnd, tickFormat, tickCount;
+  let rangeStart, rangeEnd;
 
   if (scale === 'month') {
     rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
     rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    tickFormat = (d) => d.getDate().toString();
-    tickCount = rangeEnd.getDate();
   } else if (scale === 'quarter') {
     rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
     rangeEnd = new Date(now.getFullYear(), now.getMonth() + 3, 0);
-    tickFormat = (d) => d.toLocaleDateString('en-US', { month: 'short' });
-    tickCount = 3;
   } else {
     rangeStart = new Date(now.getFullYear(), 0, 1);
     rangeEnd = new Date(now.getFullYear(), 11, 31);
-    tickFormat = (d) => d.toLocaleDateString('en-US', { month: 'short' });
-    tickCount = 12;
   }
 
   const totalMs = rangeEnd.getTime() - rangeStart.getTime();
@@ -373,25 +365,19 @@ function TransitTimeline({ windows }) {
     return ((clamped - rangeStart.getTime()) / totalMs) * 100;
   };
 
-  // Filter windows that overlap with the visible range
   const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd);
-
-  // Group by transit planet, combining aspect labels per row
-  const rows = [];
   const planetGroups = {};
   visible.forEach(w => {
     if (!planetGroups[w.transit]) planetGroups[w.transit] = [];
     planetGroups[w.transit].push(w);
   });
-
+  const rows = [];
   TIMELINE_PLANETS.forEach(p => {
     if (planetGroups[p]) rows.push({ planet: p, windows: planetGroups[p] });
   });
 
-  // Generate tick marks
   const ticks = [];
   if (scale === 'month') {
-    // Weekly ticks
     for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 7)) {
       ticks.push({ pos: toPercent(new Date(d)), label: d.getDate().toString() });
     }
@@ -407,149 +393,219 @@ function TransitTimeline({ windows }) {
     }
   }
 
-  const nowPercent = toPercent(now);
-  const ROW_H = 34;
-  const GLYPH_W = 36;
+  return { rows, ticks, toPercent, nowPercent: toPercent(now), rangeStart, rangeEnd };
+}
 
+// Mini preview for the sky tab — tappable, no controls
+function TimelinePreview({ windows, onClick }) {
+  const { rows, ticks, toPercent, nowPercent } = useTimelineData(windows, 'quarter');
   if (rows.length === 0) return null;
 
-  return (
-    <div style={{ marginBottom: 16 }}>
-      {/* Scale toggle */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 16 }}>
-        {['month', 'quarter', 'year'].map(s => (
-          <button key={s} onClick={() => setScale(s)} style={{
-            padding: "5px 14px",
-            borderRadius: 99,
-            border: `1px solid ${scale === s ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`,
-            background: scale === s ? 'rgba(255,255,255,0.08)' : 'transparent',
-            color: scale === s ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
-            fontFamily: "'Cormorant Garamond',serif",
-            fontSize: 11,
-            letterSpacing: "0.12em",
-            cursor: "pointer",
-            transition: "all 0.2s",
-          }}>
-            {s}
-          </button>
-        ))}
-      </div>
+  const ROW_H = 22;
+  const GLYPH_W = 28;
 
-      <div style={{ position: "relative", marginLeft: GLYPH_W + 8 }}>
-        {/* Time axis labels */}
-        <div style={{ position: "relative", height: 18, marginBottom: 6 }}>
+  return (
+    <div onClick={onClick} style={{
+      cursor: "pointer",
+      background: "rgba(255,255,255,0.02)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 16,
+      padding: "14px 14px 8px",
+      transition: "border-color 0.2s",
+    }}>
+      <div style={{ position: "relative", marginLeft: GLYPH_W + 6 }}>
+        <div style={{ position: "relative", height: 14, marginBottom: 4 }}>
           {ticks.map((t, i) => (
             <div key={i} style={{
-              position: "absolute",
-              left: `${t.pos}%`,
-              fontSize: 9,
-              color: "rgba(255,255,255,0.2)",
-              letterSpacing: "0.08em",
-              transform: "translateX(-50%)",
-              whiteSpace: "nowrap",
-            }}>
-              {t.label}
-            </div>
+              position: "absolute", left: `${t.pos}%`, fontSize: 8,
+              color: "rgba(255,255,255,0.15)", transform: "translateX(-50%)", whiteSpace: "nowrap",
+            }}>{t.label}</div>
           ))}
         </div>
-
-        {/* Now line reference — extends through rows */}
         <div style={{
-          position: "absolute",
-          left: `${nowPercent}%`,
-          top: 24,
-          bottom: 0,
-          width: 1,
-          background: "rgba(255,255,255,0.15)",
-          zIndex: 1,
+          position: "absolute", left: `${nowPercent}%`, top: 14, bottom: 0,
+          width: 1, background: "rgba(255,255,255,0.12)", zIndex: 1,
         }}/>
       </div>
 
-      {/* Rows */}
-      {rows.map((row, ri) => (
-        <div key={row.planet} style={{
-          display: "flex",
-          alignItems: "center",
-          height: ROW_H,
-          animation: `fadeUp 0.3s ${ri * 0.05}s ease both`,
-        }}>
-          {/* Planet glyph */}
+      {rows.map((row) => (
+        <div key={row.planet} style={{ display: "flex", alignItems: "center", height: ROW_H }}>
           <div style={{
-            width: GLYPH_W,
-            textAlign: "center",
-            fontSize: 18,
-            color: PLANET_COLORS[row.planet],
-            flexShrink: 0,
-            opacity: 0.8,
-          }}>
-            {PLANET_GLYPHS[row.planet]}
-          </div>
-
-          {/* Bar area */}
-          <div style={{
-            flex: 1,
-            position: "relative",
-            height: 20,
-            marginLeft: 8,
-          }}>
-            {/* Grid line */}
-            <div style={{
-              position: "absolute",
-              top: "50%",
-              left: 0,
-              right: 0,
-              height: 1,
-              background: "rgba(255,255,255,0.03)",
-            }}/>
-
+            width: GLYPH_W, textAlign: "center", fontSize: 14,
+            color: PLANET_COLORS[row.planet], flexShrink: 0, opacity: 0.7,
+          }}>{PLANET_GLYPHS[row.planet]}</div>
+          <div style={{ flex: 1, position: "relative", height: 12, marginLeft: 6 }}>
+            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.025)" }}/>
             {row.windows.map((w, wi) => {
               const left = toPercent(w.start);
               const right = toPercent(w.end);
               const width = Math.max(right - left, 0.5);
-              const exactPos = toPercent(w.exact);
-
               return (
-                <div key={wi} style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2 }}>
-                  {/* Bar */}
-                  <div style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: `linear-gradient(90deg, ${w.color}00, ${w.color}35, ${w.color}00)`,
-                    borderRadius: 4,
-                  }}/>
-                  {/* Exact marker */}
-                  <div style={{
-                    position: "absolute",
-                    left: `${((exactPos - left) / width) * 100}%`,
-                    top: 0,
-                    bottom: 0,
-                    width: 2,
-                    background: w.color,
-                    borderRadius: 1,
-                    opacity: 0.7,
-                  }}/>
-                  {/* Label */}
-                  {width > 4 && (
-                    <div style={{
-                      position: "absolute",
-                      top: "50%",
-                      left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      fontSize: 8,
-                      color: w.color,
-                      opacity: 0.7,
-                      whiteSpace: "nowrap",
-                      letterSpacing: "0.06em",
-                    }}>
-                      {w.label}
-                    </div>
-                  )}
+                <div key={wi} style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 1, bottom: 1 }}>
+                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, ${w.color}00, ${w.color}30, ${w.color}00)`, borderRadius: 3 }}/>
                 </div>
               );
             })}
           </div>
         </div>
       ))}
+
+      <div style={{
+        textAlign: "center", fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase",
+        color: "rgba(255,255,255,0.2)", marginTop: 6, paddingTop: 6,
+        borderTop: "1px solid rgba(255,255,255,0.04)",
+      }}>
+        tap to expand timeline
+      </div>
+    </div>
+  );
+}
+
+// Full-screen detailed timeline with scale toggle and labels
+function TimelineFull({ windows, onBack }) {
+  const [scale, setScale] = useState('quarter');
+  const { rows, ticks, toPercent, nowPercent } = useTimelineData(windows, scale);
+
+  const ROW_H = 44;
+  const GLYPH_W = 40;
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "radial-gradient(ellipse at 40% 25%, rgba(160,138,255,0.1) 0%, transparent 55%), #050510",
+      fontFamily: "'Cormorant Garamond', serif",
+      color: "white",
+      padding: "36px 20px 100px",
+    }}>
+      <div style={{ maxWidth: 600, margin: "0 auto" }}>
+        <button onClick={onBack} style={{
+          background: "none", border: "none", color: "rgba(255,255,255,0.4)",
+          fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em",
+          cursor: "pointer", marginBottom: 24,
+        }}>← back to sky</button>
+
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.34em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", marginBottom: 10 }}>
+            transit timeline
+          </div>
+          <h1 style={{ fontWeight: 300, fontSize: 34, margin: 0, letterSpacing: "0.06em" }}>overlap</h1>
+          <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.1)", margin: "15px auto 0" }}/>
+        </div>
+
+        {/* Scale toggle */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 24 }}>
+          {['month', 'quarter', 'year'].map(s => (
+            <button key={s} onClick={() => setScale(s)} style={{
+              padding: "6px 18px", borderRadius: 99,
+              border: `1px solid ${scale === s ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)'}`,
+              background: scale === s ? 'rgba(255,255,255,0.1)' : 'transparent',
+              color: scale === s ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)',
+              fontFamily: "'Cormorant Garamond',serif", fontSize: 13, letterSpacing: "0.12em",
+              cursor: "pointer", transition: "all 0.2s",
+            }}>{s}</button>
+          ))}
+        </div>
+
+        {/* Chart */}
+        <div style={{
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 18,
+          padding: "20px 18px 14px",
+        }}>
+          {/* Time axis */}
+          <div style={{ position: "relative", marginLeft: GLYPH_W + 10 }}>
+            <div style={{ position: "relative", height: 20, marginBottom: 8 }}>
+              {ticks.map((t, i) => (
+                <div key={i} style={{
+                  position: "absolute", left: `${t.pos}%`, fontSize: 10,
+                  color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em",
+                  transform: "translateX(-50%)", whiteSpace: "nowrap",
+                }}>{t.label}</div>
+              ))}
+            </div>
+            <div style={{
+              position: "absolute", left: `${nowPercent}%`, top: 20, bottom: 0,
+              width: 1, background: "rgba(255,255,255,0.18)", zIndex: 2,
+            }}/>
+            {/* "now" label */}
+            <div style={{
+              position: "absolute", left: `${nowPercent}%`, top: 6,
+              transform: "translateX(-50%)", fontSize: 8, letterSpacing: "0.15em",
+              color: "rgba(255,255,255,0.35)", textTransform: "uppercase", zIndex: 3,
+            }}>now</div>
+          </div>
+
+          {rows.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "30px 0", color: "rgba(255,255,255,0.2)", fontSize: 13 }}>
+              no active transits in this range
+            </div>
+          ) : rows.map((row, ri) => (
+            <div key={row.planet} style={{
+              display: "flex", alignItems: "center", height: ROW_H,
+              animation: `fadeUp 0.3s ${ri * 0.04}s ease both`,
+              borderTop: ri > 0 ? "1px solid rgba(255,255,255,0.03)" : "none",
+            }}>
+              {/* Planet glyph + name */}
+              <div style={{ width: GLYPH_W, textAlign: "center", flexShrink: 0 }}>
+                <div style={{ fontSize: 22, color: PLANET_COLORS[row.planet], lineHeight: 1, opacity: 0.85 }}>
+                  {PLANET_GLYPHS[row.planet]}
+                </div>
+                <div style={{ fontSize: 8, color: PLANET_COLORS[row.planet], opacity: 0.4, letterSpacing: "0.06em", marginTop: 2 }}>
+                  {row.planet.slice(0, 3)}
+                </div>
+              </div>
+
+              {/* Bar area */}
+              <div style={{ flex: 1, position: "relative", height: 24, marginLeft: 10 }}>
+                <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.03)" }}/>
+
+                {row.windows.map((w, wi) => {
+                  const left = toPercent(w.start);
+                  const right = toPercent(w.end);
+                  const width = Math.max(right - left, 0.8);
+                  const exactPos = toPercent(w.exact);
+                  const exactInBar = width > 0 ? ((exactPos - left) / width) * 100 : 50;
+
+                  return (
+                    <div key={wi} style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2 }}>
+                      <div style={{
+                        position: "absolute", inset: 0, borderRadius: 5,
+                        background: `linear-gradient(90deg, ${w.color}00, ${w.color}40, ${w.color}00)`,
+                      }}/>
+                      {/* Exact date marker */}
+                      <div style={{
+                        position: "absolute", left: `${exactInBar}%`, top: 0, bottom: 0,
+                        width: 2, background: w.color, borderRadius: 1, opacity: 0.8,
+                      }}/>
+                      {/* Aspect label */}
+                      {width > 3 && (
+                        <div style={{
+                          position: "absolute", top: "50%", left: "50%",
+                          transform: "translate(-50%, -50%)", fontSize: 9,
+                          color: w.color, opacity: 0.8, whiteSpace: "nowrap", letterSpacing: "0.06em",
+                        }}>{w.label}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Legend */}
+        <div style={{
+          marginTop: 20, textAlign: "center", fontSize: 10,
+          color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", lineHeight: 2,
+        }}>
+          bright line = exact date · gradient bar = active window (within orb)
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+      `}</style>
     </div>
   );
 }
@@ -562,6 +618,7 @@ export default function TransitsTab() {
   const [selectedPattern, setSelectedPattern] = useState(null);
   const [patternDetail, setPatternDetail] = useState(null);
   const [patternLoading, setPatternLoading] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
   const patternCache = useRef({});
 
   useEffect(() => {
@@ -696,6 +753,11 @@ export default function TransitsTab() {
       setPatternDetail({ error: true });
     }
     setPatternLoading(false);
+  }
+
+  // Timeline full view
+  if (showTimeline) {
+    return <TimelineFull windows={transitWindows} onBack={() => setShowTimeline(false)} />;
   }
 
   // Pattern detail overlay
@@ -922,7 +984,7 @@ export default function TransitsTab() {
               </>
             )}
 
-            {/* Transit Timeline */}
+            {/* Transit Timeline Preview */}
             {transitWindows.length > 0 && (
               <>
                 <div style={{
@@ -936,14 +998,7 @@ export default function TransitsTab() {
                 }}>
                   transit timeline
                 </div>
-                <div style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: 16,
-                  padding: "18px 16px 10px",
-                }}>
-                  <TransitTimeline windows={transitWindows} />
-                </div>
+                <TimelinePreview windows={transitWindows} onClick={() => setShowTimeline(true)} />
                 <div style={{
                   width: 36,
                   height: 1,
