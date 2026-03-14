@@ -264,12 +264,12 @@ export default async function handler(req, res) {
       }
 
       const astroData = await astroRes.json()
-      // Debug: log raw object keys to understand AstroApp response shape
-      if (Array.isArray(astroData.objects) && astroData.objects.length > 0) {
-        console.log('[astro debug] raw object keys:', JSON.stringify(Object.keys(astroData.objects[0])))
-        console.log('[astro debug] Sun raw:', JSON.stringify(astroData.objects[0]))
-      }
       const positions = parseAstroResponse(astroData, ayanamsa)
+
+      // Debug: include raw first object so we can see what AstroApp returns
+      const _debug = Array.isArray(astroData.objects) && astroData.objects.length > 0
+        ? { sampleRaw: astroData.objects[0], allKeys: Object.keys(astroData.objects[0]) }
+        : null
 
       const dateDisplay = now.toLocaleDateString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric',
@@ -289,6 +289,7 @@ export default async function handler(req, res) {
         ayanamsaDeg: Math.round(ayanamsa * 10000) / 10000,
         fetchedAt: new Date().toISOString(),
         positions,
+        _debug,
       })
     }
 
