@@ -391,11 +391,13 @@ export default function TransitsTab() {
       const skyCtx = getSkyContext(natalChart, transitChart);
       const prompt = patternDetailPrompt(pattern, skyCtx);
       const res = await claudeFetch({
+        model: "claude-haiku-4-5-20251001",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 600,
       });
-      const text = await res.text();
-      const json = JSON.parse(text);
+      const data = await res.json();
+      const text = data.content?.[0]?.text || "{}";
+      const json = JSON.parse(text.replace(/```json|```/g, "").trim());
       patternCache.current[cacheKey] = json;
       setPatternDetail(json);
     } catch (e) {
