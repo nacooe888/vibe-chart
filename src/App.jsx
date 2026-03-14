@@ -9,12 +9,14 @@ import RitualTab from './components/RitualTab'
 import CyclesTab from './components/CyclesTab'
 import ProfileScreen from './components/ProfileScreen'
 import ChatTab from './components/ChatTab'
+import TransitsTab from './components/TransitsTab'
 import { loadProfile } from './lib/profileStorage'
 import { identify, capture } from './lib/analytics'
 
 const TABS = [
   { id: 'map', label: '✦ map' },
   { id: 'report', label: '◎ report' },
+  { id: 'transits', label: '△ sky' },
   { id: 'ritual', label: '⟡ ritual' },
   { id: 'cycles', label: '◈ cycles' },
   { id: 'chat', label: '◇ chat' },
@@ -115,6 +117,7 @@ function MainApp() {
       {/* Tab content */}
       {activeTab === 'map' && <VibeCircle showSignOut={false} onSave={() => { capture('tab_changed', { tab: 'report' }); setActiveTab('report') }} />}
       {activeTab === 'report' && <EnergyReport onOpenChat={openChatWithQuestion} />}
+      {activeTab === 'transits' && <TransitsTab />}
       {activeTab === 'ritual' && <RitualTab />}
       {activeTab === 'cycles' && <CyclesTab />}
       {activeTab === 'chat' && <ChatTab initialQuestion={pendingChatQuestion} onQuestionConsumed={() => setPendingChatQuestion(null)} />}

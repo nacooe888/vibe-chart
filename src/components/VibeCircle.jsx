@@ -27,6 +27,15 @@ const VIBES = [
 
 const VIBE_COLORS = Object.fromEntries(VIBES.map(v => [v.outer, v.color]));
 
+const CATEGORIES = [
+  { key: "work", icon: "⚡", label: "work" },
+  { key: "love", icon: "♡", label: "love" },
+  { key: "friendship", icon: "☽", label: "friendship" },
+  { key: "self", icon: "✦", label: "self" },
+  { key: "creative", icon: "◈", label: "creative" },
+  { key: "health", icon: "❋", label: "health" },
+];
+
 const NOTE_PROMPTS = [
   "what's moving through you?",
   "any signs or synchronicities today?",
@@ -375,6 +384,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
   const [logs, setLogs] = useState([]);
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
+  const [category, setCategory] = useState(null);
   const [showExport, setShowExport] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -474,7 +484,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       svg.removeEventListener("touchend", onTouchEnd);
     };
   }, [mode]);
-  function clearAll() { setPlotPoints([]); setDrawPoints([]); setNote(""); setSaved(false); }
+  function clearAll() { setPlotPoints([]); setDrawPoints([]); setNote(""); setCategory(null); setSaved(false); }
   function undoPoint() { setPlotPoints(prev=>prev.slice(0,-1)); }
 
   async function handleSave() {
@@ -502,6 +512,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       user_id: user.id,
       mode,
       note: note || null,
+      category: category || null,
       dominant_angle: q?.dominant_angle ?? null,
       dominant_vibe: q?.dominant_vibe ?? null,
       intensity: q?.intensity ?? null,
@@ -659,6 +670,17 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           {!saved&&(
             <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder={prompt} rows={3}
               style={{display:"block",margin:"18px auto 0",width:"min(94vw, 420px)",background:"rgba(255,255,255,0.04)",border:`1px solid ${note ? auraColor + "55" : "rgba(255,255,255,0.14)"}`,borderRadius:14,padding:"14px 18px",color:"rgba(255,255,255,0.78)",fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.65,caretColor:auraColor,outline:"none",resize:"none"}}/>
+          )}
+
+          {!saved&&(
+            <div style={{display:"flex",justifyContent:"center",gap:8,marginTop:14,flexWrap:"wrap"}}>
+              {CATEGORIES.map(c=>(
+                <button key={c.key} onClick={()=>setCategory(prev=>prev===c.key?null:c.key)}
+                  style={{padding:"6px 14px",borderRadius:99,border:`1px solid ${category===c.key?auraColor+"88":"rgba(255,255,255,0.09)"}`,background:category===c.key?`${auraColor}25`:"transparent",color:category===c.key?"rgba(255,255,255,0.85)":"rgba(255,255,255,0.35)",fontFamily:"'Cormorant Garamond',serif",fontSize:12,letterSpacing:"0.1em",cursor:"pointer",transition:"all 0.25s",display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:11}}>{c.icon}</span>{c.label}
+                </button>
+              ))}
+            </div>
           )}
 
           <div style={{display:"flex",justifyContent:"center",gap:10,marginTop:20}}>

@@ -1188,7 +1188,7 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
 
 // Build a short sky summary line from the transit chart positions
 function getSkySubtitle(transitChart) {
-  if (!transitChart?.positions) return "upload your chart for a live reading";
+  if (!transitChart?.positions) return null;
   const p = transitChart.positions;
   const parts = [];
   // Moon sign
