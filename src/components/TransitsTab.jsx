@@ -274,11 +274,18 @@ const AVG_DAILY_MOTION = {
 // Skip Moon (too fast to be useful on a monthly+ chart)
 const TIMELINE_PLANETS = ['Sun','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto'];
 
-function computeTransitWindows(transitPositions, natalPositions) {
+// Impact score: slower planets + tighter orbs = higher impact
+const PLANET_WEIGHT = {
+  Pluto: 10, Neptune: 9, Uranus: 8, Saturn: 7, Jupiter: 6,
+  Mars: 4, Venus: 3, Mercury: 2, Sun: 2,
+};
+
+function computeTransitWindows(transitPositions, natalPositions, reciprocals) {
   if (!transitPositions || !natalPositions) return [];
   const windows = [];
   const now = new Date();
   const natalPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','ASC','MC'];
+  const reciprocalSet = new Set((reciprocals || []).map(r => r.title));
 
   TIMELINE_PLANETS.forEach(tp => {
     const tpos = transitPositions[tp];
@@ -297,85 +304,67 @@ function computeTransitWindows(transitPositions, natalPositions) {
         const orb = Math.abs(orbBetween(tAbs, nAbs) - asp.deg);
         if (orb > maxOrb) return;
 
-        // Estimate days from now to enter/leave orb
-        // For retrograde planets, the window is roughly 2x because they pass, reverse, pass again
         const rxMultiplier = isRx ? 2.5 : 1;
         const daysPerDeg = 1 / speed;
         const daysToExact = orb * daysPerDeg;
         const windowHalf = maxOrb * daysPerDeg * rxMultiplier;
 
-        // Determine if applying or separating to place the exact date
         const diff = signedAspectDiff(tAbs, nAbs, asp.deg);
         let exactDate;
         if (Math.abs(diff) < 0.15) {
           exactDate = now;
         } else if ((!isRx && diff < 0) || (isRx && diff > 0)) {
-          // applying
           exactDate = new Date(now.getTime() + daysToExact * 86400000);
         } else {
-          // separating
           exactDate = new Date(now.getTime() - daysToExact * 86400000);
         }
 
         const start = new Date(exactDate.getTime() - windowHalf * 86400000);
         const end = new Date(exactDate.getTime() + windowHalf * 86400000);
 
+        // Score: planet weight * (1 / orb) * aspect importance
+        const aspWeight = asp.deg === 0 ? 2 : asp.deg === 180 ? 1.5 : 1;
+        const score = (PLANET_WEIGHT[tp] || 1) * (1 / Math.max(orb, 0.1)) * aspWeight;
+
+        // Check if this is part of a reciprocal pair
+        const isReciprocal = reciprocalSet.has(`${tp} ↔ ${np} reciprocal`) ||
+                             reciprocalSet.has(`${np} ↔ ${tp} reciprocal`);
+
+        const rowLabel = `${PLANET_GLYPHS[tp] || tp} ${asp.glyph} natal ${PLANET_GLYPHS[np] || np}`;
+        const rowName = `${tp} ${asp.name} ${np}`;
+
         windows.push({
-          transit: tp,
-          natal: np,
-          aspect: asp,
-          orb,
-          start,
-          end,
-          exact: exactDate,
+          transit: tp, natal: np, aspect: asp, orb,
+          start, end, exact: exactDate,
           color: PLANET_COLORS[tp],
-          label: `${asp.glyph} ${np}`,
-          isRx,
+          rowLabel, rowName,
+          isRx, score,
+          isReciprocal,
         });
       });
     });
   });
 
-  // Sort by planet order, then by start date
-  const order = Object.fromEntries(TIMELINE_PLANETS.map((p, i) => [p, i]));
-  windows.sort((a, b) => (order[a.transit] ?? 99) - (order[b.transit] ?? 99) || a.start - b.start);
-  return windows;
+  // Sort by score descending, take top 15
+  windows.sort((a, b) => b.score - a.score);
+  return windows.slice(0, 15);
 }
 
 // ── Timeline Chart Component ────────────────────────────────────────────────
 
-function useTimelineData(windows, scale) {
+function getTimelineRange(scale) {
   const now = new Date();
-  let rangeStart, rangeEnd;
-
   if (scale === 'month') {
-    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0) };
   } else if (scale === 'quarter') {
-    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    rangeEnd = new Date(now.getFullYear(), now.getMonth() + 3, 0);
+    return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 3, 0) };
   } else {
-    rangeStart = new Date(now.getFullYear(), 0, 1);
-    rangeEnd = new Date(now.getFullYear(), 11, 31);
+    return { start: new Date(now.getFullYear(), 0, 1), end: new Date(now.getFullYear(), 11, 31) };
   }
+}
 
-  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
-  const toPercent = (date) => {
-    const clamped = Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), date.getTime()));
-    return ((clamped - rangeStart.getTime()) / totalMs) * 100;
-  };
-
-  const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd);
-  const planetGroups = {};
-  visible.forEach(w => {
-    if (!planetGroups[w.transit]) planetGroups[w.transit] = [];
-    planetGroups[w.transit].push(w);
-  });
-  const rows = [];
-  TIMELINE_PLANETS.forEach(p => {
-    if (planetGroups[p]) rows.push({ planet: p, windows: planetGroups[p] });
-  });
-
+function getTimelineTicks(scale, rangeStart, rangeEnd, toPercent) {
+  const now = new Date();
   const ticks = [];
   if (scale === 'month') {
     for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 7)) {
@@ -392,82 +381,95 @@ function useTimelineData(windows, scale) {
       ticks.push({ pos: toPercent(d), label: d.toLocaleDateString('en-US', { month: 'short' }).charAt(0) });
     }
   }
-
-  return { rows, ticks, toPercent, nowPercent: toPercent(now), rangeStart, rangeEnd };
+  return ticks;
 }
 
-// Mini preview for the sky tab — tappable, no controls
+// Mini preview — shows top 8 rows as a compact tappable Gantt
 function TimelinePreview({ windows, onClick }) {
-  const { rows, ticks, toPercent, nowPercent } = useTimelineData(windows, 'quarter');
-  if (rows.length === 0) return null;
+  const now = new Date();
+  const { start: rangeStart, end: rangeEnd } = getTimelineRange('quarter');
+  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
+  const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
+  const nowPct = toPercent(now);
+  const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd).slice(0, 8);
+  const ticks = getTimelineTicks('quarter', rangeStart, rangeEnd, toPercent);
 
-  const ROW_H = 22;
-  const GLYPH_W = 28;
+  if (visible.length === 0) return null;
+
+  const LABEL_W = 90;
+  const ROW_H = 20;
 
   return (
     <div onClick={onClick} style={{
-      cursor: "pointer",
-      background: "rgba(255,255,255,0.02)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      borderRadius: 16,
-      padding: "14px 14px 8px",
-      transition: "border-color 0.2s",
+      cursor: "pointer", background: "rgba(255,255,255,0.02)",
+      border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16,
+      padding: "14px 14px 8px", transition: "border-color 0.2s",
     }}>
-      <div style={{ position: "relative", marginLeft: GLYPH_W + 6 }}>
-        <div style={{ position: "relative", height: 14, marginBottom: 4 }}>
-          {ticks.map((t, i) => (
-            <div key={i} style={{
-              position: "absolute", left: `${t.pos}%`, fontSize: 8,
-              color: "rgba(255,255,255,0.15)", transform: "translateX(-50%)", whiteSpace: "nowrap",
-            }}>{t.label}</div>
-          ))}
-        </div>
-        <div style={{
-          position: "absolute", left: `${nowPercent}%`, top: 14, bottom: 0,
-          width: 1, background: "rgba(255,255,255,0.12)", zIndex: 1,
-        }}/>
+      {/* Time axis */}
+      <div style={{ position: "relative", marginLeft: LABEL_W + 6, height: 14, marginBottom: 4 }}>
+        {ticks.map((t, i) => (
+          <div key={i} style={{
+            position: "absolute", left: `${t.pos}%`, fontSize: 8,
+            color: "rgba(255,255,255,0.15)", transform: "translateX(-50%)", whiteSpace: "nowrap",
+          }}>{t.label}</div>
+        ))}
       </div>
 
-      {rows.map((row) => (
-        <div key={row.planet} style={{ display: "flex", alignItems: "center", height: ROW_H }}>
-          <div style={{
-            width: GLYPH_W, textAlign: "center", fontSize: 14,
-            color: PLANET_COLORS[row.planet], flexShrink: 0, opacity: 0.7,
-          }}>{PLANET_GLYPHS[row.planet]}</div>
-          <div style={{ flex: 1, position: "relative", height: 12, marginLeft: 6 }}>
-            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.025)" }}/>
-            {row.windows.map((w, wi) => {
-              const left = toPercent(w.start);
-              const right = toPercent(w.end);
-              const width = Math.max(right - left, 0.5);
-              return (
-                <div key={wi} style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 1, bottom: 1 }}>
+      {/* Rows */}
+      <div style={{ position: "relative" }}>
+        {/* Now line */}
+        <div style={{
+          position: "absolute", left: LABEL_W + 6, right: 0, top: 0, bottom: 0, pointerEvents: "none",
+        }}>
+          <div style={{ position: "absolute", left: `${nowPct}%`, top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.1)" }}/>
+        </div>
+
+        {visible.map((w, i) => {
+          const left = toPercent(w.start);
+          const right = toPercent(w.end);
+          const width = Math.max(right - left, 0.8);
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", height: ROW_H }}>
+              <div style={{
+                width: LABEL_W, fontSize: 9, color: w.color, opacity: 0.6,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                letterSpacing: "0.04em", flexShrink: 0,
+              }}>{w.rowLabel}</div>
+              <div style={{ flex: 1, position: "relative", height: 10, marginLeft: 6 }}>
+                <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.02)" }}/>
+                <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 1, bottom: 1 }}>
                   <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, ${w.color}00, ${w.color}30, ${w.color}00)`, borderRadius: 3 }}/>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       <div style={{
         textAlign: "center", fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase",
-        color: "rgba(255,255,255,0.2)", marginTop: 6, paddingTop: 6,
+        color: "rgba(255,255,255,0.2)", marginTop: 8, paddingTop: 6,
         borderTop: "1px solid rgba(255,255,255,0.04)",
       }}>
-        tap to expand timeline
+        tap to expand · {windows.length} active transits
       </div>
     </div>
   );
 }
 
-// Full-screen detailed timeline with scale toggle and labels
+// Full-screen detailed Gantt — each row is a specific transit aspect
 function TimelineFull({ windows, onBack }) {
   const [scale, setScale] = useState('quarter');
-  const { rows, ticks, toPercent, nowPercent } = useTimelineData(windows, scale);
+  const now = new Date();
+  const { start: rangeStart, end: rangeEnd } = getTimelineRange(scale);
+  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
+  const toPercent = (d) => ((Math.max(rangeStart.getTime(), Math.min(rangeEnd.getTime(), d.getTime())) - rangeStart.getTime()) / totalMs) * 100;
+  const nowPct = toPercent(now);
+  const visible = windows.filter(w => w.end >= rangeStart && w.start <= rangeEnd);
+  const ticks = getTimelineTicks(scale, rangeStart, rangeEnd, toPercent);
 
-  const ROW_H = 44;
-  const GLYPH_W = 40;
+  const LABEL_W = 140;
+  const ROW_H = 48;
 
   return (
     <div style={{
@@ -475,9 +477,9 @@ function TimelineFull({ windows, onBack }) {
       background: "radial-gradient(ellipse at 40% 25%, rgba(160,138,255,0.1) 0%, transparent 55%), #050510",
       fontFamily: "'Cormorant Garamond', serif",
       color: "white",
-      padding: "36px 20px 100px",
+      padding: "36px 16px 100px",
     }}>
-      <div style={{ maxWidth: 600, margin: "0 auto" }}>
+      <div style={{ maxWidth: 700, margin: "0 auto" }}>
         <button onClick={onBack} style={{
           background: "none", border: "none", color: "rgba(255,255,255,0.4)",
           fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em",
@@ -489,6 +491,9 @@ function TimelineFull({ windows, onBack }) {
             transit timeline
           </div>
           <h1 style={{ fontWeight: 300, fontSize: 34, margin: 0, letterSpacing: "0.06em" }}>overlap</h1>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", marginTop: 8, fontStyle: "italic" }}>
+            top {windows.length} transits by impact
+          </div>
           <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.1)", margin: "15px auto 0" }}/>
         </div>
 
@@ -506,100 +511,115 @@ function TimelineFull({ windows, onBack }) {
           ))}
         </div>
 
-        {/* Chart */}
+        {/* Chart container */}
         <div style={{
           background: "rgba(255,255,255,0.02)",
           border: "1px solid rgba(255,255,255,0.06)",
           borderRadius: 18,
           padding: "20px 18px 14px",
+          overflowX: "auto",
         }}>
-          {/* Time axis */}
-          <div style={{ position: "relative", marginLeft: GLYPH_W + 10 }}>
-            <div style={{ position: "relative", height: 20, marginBottom: 8 }}>
-              {ticks.map((t, i) => (
-                <div key={i} style={{
-                  position: "absolute", left: `${t.pos}%`, fontSize: 10,
-                  color: "rgba(255,255,255,0.25)", letterSpacing: "0.08em",
-                  transform: "translateX(-50%)", whiteSpace: "nowrap",
-                }}>{t.label}</div>
-              ))}
-            </div>
+          {/* Time axis header */}
+          <div style={{ position: "relative", marginLeft: LABEL_W + 12, height: 22, marginBottom: 4 }}>
+            {ticks.map((t, i) => (
+              <div key={i} style={{
+                position: "absolute", left: `${t.pos}%`, fontSize: 11,
+                color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em",
+                transform: "translateX(-50%)", whiteSpace: "nowrap",
+              }}>{t.label}</div>
+            ))}
             <div style={{
-              position: "absolute", left: `${nowPercent}%`, top: 20, bottom: 0,
-              width: 1, background: "rgba(255,255,255,0.18)", zIndex: 2,
-            }}/>
-            {/* "now" label */}
-            <div style={{
-              position: "absolute", left: `${nowPercent}%`, top: 6,
+              position: "absolute", left: `${nowPct}%`, top: -2,
               transform: "translateX(-50%)", fontSize: 8, letterSpacing: "0.15em",
-              color: "rgba(255,255,255,0.35)", textTransform: "uppercase", zIndex: 3,
+              color: "rgba(255,255,255,0.4)", textTransform: "uppercase",
             }}>now</div>
           </div>
 
-          {rows.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "30px 0", color: "rgba(255,255,255,0.2)", fontSize: 13 }}>
-              no active transits in this range
-            </div>
-          ) : rows.map((row, ri) => (
-            <div key={row.planet} style={{
-              display: "flex", alignItems: "center", height: ROW_H,
-              animation: `fadeUp 0.3s ${ri * 0.04}s ease both`,
-              borderTop: ri > 0 ? "1px solid rgba(255,255,255,0.03)" : "none",
+          {/* Rows */}
+          <div style={{ position: "relative" }}>
+            {/* Now line spanning all rows */}
+            <div style={{
+              position: "absolute", top: 0, bottom: 0,
+              left: LABEL_W + 12, right: 0, pointerEvents: "none",
             }}>
-              {/* Planet glyph + name */}
-              <div style={{ width: GLYPH_W, textAlign: "center", flexShrink: 0 }}>
-                <div style={{ fontSize: 22, color: PLANET_COLORS[row.planet], lineHeight: 1, opacity: 0.85 }}>
-                  {PLANET_GLYPHS[row.planet]}
-                </div>
-                <div style={{ fontSize: 8, color: PLANET_COLORS[row.planet], opacity: 0.4, letterSpacing: "0.06em", marginTop: 2 }}>
-                  {row.planet.slice(0, 3)}
-                </div>
+              <div style={{
+                position: "absolute", left: `${nowPct}%`, top: 0, bottom: 0,
+                width: 1, background: "rgba(255,255,255,0.15)", zIndex: 2,
+              }}/>
+            </div>
+
+            {visible.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.2)", fontSize: 13 }}>
+                no active transits in this range
               </div>
+            ) : visible.map((w, ri) => {
+              const left = toPercent(w.start);
+              const right = toPercent(w.end);
+              const width = Math.max(right - left, 0.8);
+              const exactPct = toPercent(w.exact);
+              const exactInBar = width > 0 ? ((exactPct - left) / width) * 100 : 50;
+              const exactLabel = w.exact.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-              {/* Bar area */}
-              <div style={{ flex: 1, position: "relative", height: 24, marginLeft: 10 }}>
-                <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.03)" }}/>
+              return (
+                <div key={ri} style={{
+                  display: "flex", alignItems: "center", height: ROW_H,
+                  borderTop: ri > 0 ? "1px solid rgba(255,255,255,0.03)" : "none",
+                  animation: `fadeUp 0.3s ${ri * 0.03}s ease both`,
+                }}>
+                  {/* Label */}
+                  <div style={{ width: LABEL_W, flexShrink: 0, paddingRight: 10 }}>
+                    <div style={{
+                      fontSize: 13, color: w.color, letterSpacing: "0.04em",
+                      lineHeight: 1.3, display: "flex", alignItems: "center", gap: 6,
+                    }}>
+                      <span>{w.rowLabel}</span>
+                      {w.isReciprocal && <span style={{ fontSize: 9, opacity: 0.5 }}>↔</span>}
+                    </div>
+                    <div style={{
+                      fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.08em", marginTop: 2,
+                    }}>
+                      {w.orb.toFixed(1)}° orb{w.isRx ? ' · Rx' : ''}
+                    </div>
+                  </div>
 
-                {row.windows.map((w, wi) => {
-                  const left = toPercent(w.start);
-                  const right = toPercent(w.end);
-                  const width = Math.max(right - left, 0.8);
-                  const exactPos = toPercent(w.exact);
-                  const exactInBar = width > 0 ? ((exactPos - left) / width) * 100 : 50;
-
-                  return (
-                    <div key={wi} style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2 }}>
+                  {/* Bar */}
+                  <div style={{ flex: 1, position: "relative", height: 24, marginLeft: 12 }}>
+                    <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.025)" }}/>
+                    <div style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2 }}>
+                      {/* Gradient bar */}
                       <div style={{
                         position: "absolute", inset: 0, borderRadius: 5,
-                        background: `linear-gradient(90deg, ${w.color}00, ${w.color}40, ${w.color}00)`,
+                        background: `linear-gradient(90deg, ${w.color}08, ${w.color}40, ${w.color}08)`,
+                        border: `1px solid ${w.color}20`,
                       }}/>
-                      {/* Exact date marker */}
+                      {/* Exact marker */}
                       <div style={{
-                        position: "absolute", left: `${exactInBar}%`, top: 0, bottom: 0,
-                        width: 2, background: w.color, borderRadius: 1, opacity: 0.8,
+                        position: "absolute", left: `${exactInBar}%`, top: -2, bottom: -2,
+                        width: 2, background: w.color, borderRadius: 1, opacity: 0.9,
                       }}/>
-                      {/* Aspect label */}
-                      {width > 3 && (
+                      {/* Exact date label */}
+                      {width > 5 && (
                         <div style={{
-                          position: "absolute", top: "50%", left: "50%",
-                          transform: "translate(-50%, -50%)", fontSize: 9,
-                          color: w.color, opacity: 0.8, whiteSpace: "nowrap", letterSpacing: "0.06em",
-                        }}>{w.label}</div>
+                          position: "absolute", left: `${exactInBar}%`, bottom: -14,
+                          transform: "translateX(-50%)", fontSize: 8, color: w.color,
+                          opacity: 0.5, whiteSpace: "nowrap",
+                        }}>{exactLabel}</div>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Legend */}
         <div style={{
           marginTop: 20, textAlign: "center", fontSize: 10,
-          color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", lineHeight: 2,
+          color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", lineHeight: 2.2,
         }}>
-          bright line = exact date · gradient bar = active window (within orb)
+          bright line = exact date · bar = active window · sorted by impact<br/>
+          ↔ = reciprocal transit · Rx = retrograde
         </div>
       </div>
 
@@ -724,7 +744,8 @@ export default function TransitsTab() {
   const positions = transitChart?.positions;
   const dateLabel = transitChart?.date || 'today';
   const patterns = detectPatterns(positions, natalChart?.positions);
-  const transitWindows = computeTransitWindows(positions, natalChart?.positions);
+  const reciprocals = patterns.filter(p => p.type === 'reciprocal');
+  const transitWindows = computeTransitWindows(positions, natalChart?.positions, reciprocals);
 
   async function openPatternDetail(pattern) {
     setSelectedPattern(pattern);
