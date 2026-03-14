@@ -130,7 +130,7 @@ function buildChartPayload(name, dateStr, timeStr, lat, lng, tz) {
         version: 1,
       },
     },
-    calcRequestProps: { needImage: 'N', needAspects: 'N', needSpeeds: 'Y' },
+    calcRequestProps: { needImage: 'N', needAspects: 'N' },
     params: { objects: PLANET_IDS },
   }
 }
@@ -147,8 +147,8 @@ function parseAstroResponse(data, ayanamsa) {
         positions[name] = {
           ...lngToPosition(sidLng),
           tropical: Math.round(obj.lng * 1000) / 1000,
-          retrograde: typeof obj.spd === 'number' ? obj.spd < 0 : false,
-          speed: typeof obj.spd === 'number' ? Math.round(obj.spd * 10000) / 10000 : null,
+          retrograde: typeof obj.speed === 'number' ? obj.speed < 0 : false,
+          speed: typeof obj.speed === 'number' ? Math.round(obj.speed * 10000) / 10000 : null,
         }
       }
     })
@@ -266,11 +266,6 @@ export default async function handler(req, res) {
       const astroData = await astroRes.json()
       const positions = parseAstroResponse(astroData, ayanamsa)
 
-      // Debug: include raw first object so we can see what AstroApp returns
-      const _debug = Array.isArray(astroData.objects) && astroData.objects.length > 0
-        ? { sampleRaw: astroData.objects[0], allKeys: Object.keys(astroData.objects[0]) }
-        : null
-
       const dateDisplay = now.toLocaleDateString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric',
       })
@@ -289,7 +284,6 @@ export default async function handler(req, res) {
         ayanamsaDeg: Math.round(ayanamsa * 10000) / 10000,
         fetchedAt: new Date().toISOString(),
         positions,
-        _debug,
       })
     }
 
