@@ -130,7 +130,7 @@ function buildChartPayload(name, dateStr, timeStr, lat, lng, tz) {
         version: 1,
       },
     },
-    calcRequestProps: { needImage: 'N', needAspects: 'N' },
+    calcRequestProps: { needImage: 'N', needAspects: 'N', needSpeeds: 'Y' },
     params: { objects: PLANET_IDS },
   }
 }
