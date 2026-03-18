@@ -204,6 +204,7 @@ function detectPatterns(transitPositions, natalPositions) {
         color: PLANET_COLORS[planet] || '#C49FFF',
         title: `${planet} is activating ${aspects.length} natal points`,
         subtitle: aspects.map(a => `${a.aspect.name} ${a.natal} (${a.orb.toFixed(1)}°)`).join(' · '),
+        aspects, // individual aspects for pie chart
       });
     }
   });
@@ -1494,7 +1495,95 @@ Respond with ONLY valid JSON:
                 }}>
                   active patterns
                 </div>
-                {patterns.map((p, i) => (
+                {patterns.map((p, i) => {
+                  // Mass activation: render as pie chart
+                  if (p.type === 'mass-activation' && p.aspects?.length >= 3) {
+                    const aspects = p.aspects;
+                    // Weight each slice by inverse orb (tighter = bigger slice)
+                    const weights = aspects.map(a => 1 / Math.max(a.orb, 0.1));
+                    const totalWeight = weights.reduce((s, w) => s + w, 0);
+                    const R = 70;
+                    const cx = R + 10;
+                    const cy = R + 10;
+                    let startAngle = -90; // start from top
+
+                    const slices = aspects.map((a, si) => {
+                      const pct = weights[si] / totalWeight;
+                      const sweepAngle = pct * 360;
+                      const endAngle = startAngle + sweepAngle;
+                      const largeArc = sweepAngle > 180 ? 1 : 0;
+
+                      const startRad = (startAngle * Math.PI) / 180;
+                      const endRad = (endAngle * Math.PI) / 180;
+                      const x1 = cx + R * Math.cos(startRad);
+                      const y1 = cy + R * Math.sin(startRad);
+                      const x2 = cx + R * Math.cos(endRad);
+                      const y2 = cy + R * Math.sin(endRad);
+
+                      // Label position at midpoint of arc
+                      const midRad = ((startAngle + endAngle) / 2 * Math.PI) / 180;
+                      const labelR = R * 0.65;
+                      const lx = cx + labelR * Math.cos(midRad);
+                      const ly = cy + labelR * Math.sin(midRad);
+
+                      const natalColor = PLANET_COLORS[a.natal] || 'rgba(255,255,255,0.5)';
+                      const path = `M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+
+                      startAngle = endAngle;
+
+                      return {
+                        path, lx, ly, aspect: a, color: natalColor, pct,
+                        natalGlyph: PLANET_GLYPHS[a.natal] || a.natal,
+                        aspectGlyph: a.aspect.glyph,
+                      };
+                    });
+
+                    return (
+                      <div key={i} style={{
+                        background: `${p.color}08`,
+                        border: `1px solid ${p.color}20`,
+                        borderRadius: 16,
+                        padding: "18px 16px",
+                        animation: `fadeUp 0.5s ${i * 0.08}s ease both`,
+                      }}>
+                        <div style={{
+                          fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase",
+                          color: p.color, opacity: 0.7, textAlign: "center", marginBottom: 4,
+                        }}>mass activation</div>
+                        <div style={{
+                          fontSize: 15, color: "rgba(255,255,255,0.8)", textAlign: "center",
+                          letterSpacing: "0.04em", marginBottom: 14,
+                        }}>{p.title}</div>
+
+                        <div style={{ display: "flex", justifyContent: "center" }}>
+                          <svg viewBox={`0 0 ${(R+10)*2} ${(R+10)*2}`} style={{ width: 180, height: 180 }}>
+                            {slices.map((s, si) => (
+                              <g key={si} onClick={(e) => { e.stopPropagation(); openPatternDetail({
+                                ...p,
+                                title: `${p.planet} ${s.aspect.aspect.name} ${s.aspect.natal}`,
+                                subtitle: `${s.aspect.aspect.name} ${s.aspect.natal} — ${s.aspect.orb.toFixed(1)}° orb`,
+                              }); }} style={{ cursor: "pointer" }}>
+                                <path d={s.path} fill={s.color} fillOpacity={0.2} stroke={s.color} strokeWidth={1} strokeOpacity={0.4} />
+                                <text x={s.lx} y={s.ly - 6} textAnchor="middle" fill={s.color} fontSize={14} fontFamily="serif">{s.natalGlyph}</text>
+                                <text x={s.lx} y={s.ly + 8} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={8} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">{s.aspectGlyph} {s.aspect.orb.toFixed(1)}°</text>
+                              </g>
+                            ))}
+                            {/* Center: transit planet */}
+                            <circle cx={cx} cy={cy} r={18} fill="#050510" stroke={p.color} strokeWidth={1} strokeOpacity={0.3} />
+                            <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill={p.color} fontSize={20} fontFamily="serif">{PLANET_GLYPHS[p.planet] || p.planet}</text>
+                          </svg>
+                        </div>
+
+                        <div style={{
+                          textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
+                          color: "rgba(255,255,255,0.2)", marginTop: 8,
+                        }}>tap a slice for details</div>
+                      </div>
+                    );
+                  }
+
+                  // Regular pattern card (reciprocal, convergence)
+                  return (
                   <div key={i} onClick={() => openPatternDetail(p)} style={{
                     background: p.type === 'reciprocal'
                       ? `linear-gradient(135deg, ${p.color}12, ${p.color2}12)`
@@ -1547,7 +1636,8 @@ Respond with ONLY valid JSON:
                       {p.subtitle}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 <div style={{
                   width: 36,
                   height: 1,
