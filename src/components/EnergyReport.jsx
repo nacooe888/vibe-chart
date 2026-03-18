@@ -134,7 +134,7 @@ export function buildSkyContext(natal, transits) {
           ctx += `- STELLIUM in ${pat.sign}: ${pat.planets.join(', ')}\n`;
         }
       });
-      ctx += 'When a transit activates one planet in a pattern, it activates the ENTIRE pattern. Note which patterns are being activated by current transits.\n';
+      ctx += 'When interpreting transits to planets in a pattern: FIRST address the specific natal planet being aspected and what that transit means for it. THEN note that this planet is part of a larger pattern and what activating the whole configuration means. The individual planet comes first, the pattern context comes second.\n';
     }
 
     ctx += '\n';
