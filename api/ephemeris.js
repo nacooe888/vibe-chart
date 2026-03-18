@@ -1,32 +1,28 @@
 // Vercel serverless function for ephemeris calculations
-// Uses Moshier ephemeris (pure JS) to compute exact transit-to-natal aspect dates
-// Accepts a batch of transits and returns real dates for all of them
+// Uses Swiss Ephemeris (WASM) with native sidereal Fagan-Allen mode
+// Returns exact transit-to-natal aspect dates with minute-level precision
 
-import { getAllPlanets } from 'ephemeris'
+import SwissEph from 'swisseph-wasm'
 
 export const config = {
   api: { bodyParser: { sizeLimit: '1mb' } },
   maxDuration: 30,
 }
 
-const DAY = 86400000
-const HOUR = 3600000
-
-const PLANET_MAP = {
-  Sun: 'sun', Moon: 'moon', Mercury: 'mercury', Venus: 'venus', Mars: 'mars',
-  Jupiter: 'jupiter', Saturn: 'saturn', Uranus: 'uranus', Neptune: 'neptune', Pluto: 'pluto',
+const PLANET_IDS = {
+  Sun: 0, Moon: 1, Mercury: 2, Venus: 3, Mars: 4,
+  Jupiter: 5, Saturn: 6, Uranus: 7, Neptune: 8, Pluto: 9,
+  TrueNode: 11, Chiron: 15,
 }
 
 const OUTER = new Set(['Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'])
 
-function faganAllenAyanamsa(date) {
-  const yearDecimal = date.getFullYear() + date.getMonth() / 12 + date.getDate() / 365.25
-  return 24.7666 + (yearDecimal - 2000.0) * 0.013969
-}
+// SEFLG_SIDEREAL = 65536, SEFLG_SPEED = 256
+const FLAGS = 65536 | 256
 
-function tropToSidereal(tropLng, ayanamsa) {
-  return ((tropLng - ayanamsa) % 360 + 360) % 360
-}
+const DAY_JD = 1
+const HOUR_JD = 1 / 24
+const MIN_JD = 1 / 1440
 
 function orbBetween(a, b) {
   let diff = Math.abs(a - b) % 360
@@ -38,107 +34,102 @@ function aspectOrb(tLng, nLng, aspectDeg) {
   return Math.abs(orbBetween(tLng, nLng) - aspectDeg)
 }
 
-// Precompute all planet sidereal longitudes for a date range (daily)
-// Returns Map<dayKey, Map<ephPlanetName, siderealLng>>
-function precomputePositions(planets, startDate, endDate) {
+function dateToJd(swe, date) {
+  return swe.julday(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate(),
+    date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600)
+}
+
+function jdToDateStr(jd) {
+  const unixMs = (jd - 2440587.5) * 86400000
+  return new Date(unixMs).toISOString().slice(0, 10)
+}
+
+function jdToIso(jd) {
+  const unixMs = (jd - 2440587.5) * 86400000
+  return new Date(unixMs).toISOString()
+}
+
+function getLng(swe, planetId, jd) {
+  const result = swe.calc_ut(jd, planetId, FLAGS)
+  return result[0]
+}
+
+// Compute natal position using Swiss Ephemeris for maximum precision
+function getNatalLng(swe, planetId, birthDate, birthTime, birthLat, birthLng) {
+  const jd = swe.julday(
+    birthDate.getUTCFullYear(), birthDate.getUTCMonth() + 1, birthDate.getUTCDate(),
+    birthDate.getUTCHours() + birthDate.getUTCMinutes() / 60
+  )
+  return getLng(swe, planetId, jd)
+}
+
+// Precompute daily positions for all needed transit planets
+function precomputeDaily(swe, planetIds, startJd, endJd) {
   const cache = new Map()
-  const ephNames = [...new Set(planets.map(p => PLANET_MAP[p]).filter(Boolean))]
-
-  for (let d = new Date(startDate); d <= endDate; d = new Date(d.getTime() + DAY)) {
-    const r = getAllPlanets(d, 37.7749, -122.4194, 0)
-    const ayan = faganAllenAyanamsa(d)
-    const dayKey = d.getTime()
-    const positions = new Map()
-
-    for (const eph of ephNames) {
-      const trop = r.observed[eph]?.apparentLongitudeDd
-      if (trop != null) {
-        positions.set(eph, tropToSidereal(trop, ayan))
-      }
+  for (let jd = startJd; jd <= endJd; jd += DAY_JD) {
+    const positions = {}
+    for (const id of planetIds) {
+      positions[id] = getLng(swe, id, jd)
     }
-    cache.set(dayKey, positions)
+    cache.set(jd, positions)
   }
   return cache
 }
 
-// Get single planet position (for hourly refinement, not precomputed)
-function getSiderealLng(ephPlanet, date) {
-  const r = getAllPlanets(date, 37.7749, -122.4194, 0)
-  const trop = r.observed[ephPlanet]?.apparentLongitudeDd
-  if (trop == null) return null
-  return tropToSidereal(trop, faganAllenAyanamsa(date))
-}
-
-// Hourly refinement around a daily hit
-function refineHit(ephPlanet, natalLng, aspectDeg, dayBefore, dayAfter) {
-  let bestOrb = Infinity
-  let bestDate = dayBefore
-
-  const start = new Date(dayBefore.getTime() - DAY)
-  const end = new Date(dayAfter.getTime() + DAY)
-
-  for (let d = new Date(start); d <= end; d = new Date(d.getTime() + HOUR)) {
-    const lng = getSiderealLng(ephPlanet, d)
-    if (lng == null) continue
-    const orb = aspectOrb(lng, natalLng, aspectDeg)
-    if (orb < bestOrb) {
-      bestOrb = orb
-      bestDate = new Date(d)
-    }
-  }
-
-  return { date: bestDate.toISOString().slice(0, 10), orb: Math.round(bestOrb * 1000) / 1000 }
-}
-
-// Find exact hits for one transit using precomputed positions
-function findHitsFromCache(cache, ephPlanet, natalLng, aspectDeg) {
+// Find exact hits from precomputed daily cache, then refine to minute
+function findHits(swe, cache, transitId, natalLng, aspectDeg) {
   const hits = []
-  let prevOrb = null
-  let prevDir = null
-  let prevTime = null
+  let prevOrb = null, prevDir = null, prevJd = null
+  const sortedJds = [...cache.keys()].sort((a, b) => a - b)
 
-  const sortedTimes = [...cache.keys()].sort((a, b) => a - b)
-
-  for (const t of sortedTimes) {
-    const positions = cache.get(t)
-    const lng = positions.get(ephPlanet)
+  for (const jd of sortedJds) {
+    const lng = cache.get(jd)[transitId]
     if (lng == null) continue
-
     const orb = aspectOrb(lng, natalLng, aspectDeg)
 
     if (prevOrb != null) {
       const dir = orb < prevOrb ? 'applying' : 'separating'
       if (prevDir === 'applying' && dir === 'separating' && prevOrb < 1) {
-        const refined = refineHit(ephPlanet, natalLng, aspectDeg, new Date(prevTime), new Date(t))
-        hits.push(refined)
+        // Refine: hourly pass
+        let bestOrb = Infinity, bestJd = prevJd
+        for (let h = prevJd - DAY_JD; h <= jd + DAY_JD; h += HOUR_JD) {
+          const o = aspectOrb(getLng(swe, transitId, h), natalLng, aspectDeg)
+          if (o < bestOrb) { bestOrb = o; bestJd = h }
+        }
+        // Refine: minute pass
+        for (let m = bestJd - HOUR_JD; m <= bestJd + HOUR_JD; m += MIN_JD) {
+          const o = aspectOrb(getLng(swe, transitId, m), natalLng, aspectDeg)
+          if (o < bestOrb) { bestOrb = o; bestJd = m }
+        }
+        hits.push({
+          date: jdToDateStr(bestJd),
+          exactTime: jdToIso(bestJd),
+          orb: Math.round(bestOrb * 1000000) / 1000000,
+        })
       }
       prevDir = dir
     }
     prevOrb = orb
-    prevTime = t
+    prevJd = jd
   }
   return hits
 }
 
-// Find window start/end (when transit enters/leaves orb)
-function findWindow(cache, ephPlanet, natalLng, aspectDeg, maxOrb) {
-  const sortedTimes = [...cache.keys()].sort((a, b) => a - b)
-  let windowStart = null
-  let windowEnd = null
+// Find active window (when orb <= maxOrb)
+function findWindow(cache, transitId, natalLng, aspectDeg, maxOrb) {
+  let windowStart = null, windowEnd = null
+  const sortedJds = [...cache.keys()].sort((a, b) => a - b)
 
-  for (const t of sortedTimes) {
-    const positions = cache.get(t)
-    const lng = positions.get(ephPlanet)
+  for (const jd of sortedJds) {
+    const lng = cache.get(jd)[transitId]
     if (lng == null) continue
-
     const orb = aspectOrb(lng, natalLng, aspectDeg)
     if (orb <= maxOrb) {
-      const dateStr = new Date(t).toISOString().slice(0, 10)
+      const dateStr = jdToDateStr(jd)
       if (!windowStart) windowStart = dateStr
       windowEnd = dateStr
     }
   }
-
   return windowStart ? { start: windowStart, end: windowEnd } : null
 }
 
@@ -149,46 +140,50 @@ export default async function handler(req, res) {
 
   const { transits, natalPositions, scanYears } = req.body || {}
 
-  // transits: array of { transitPlanet, natalPlanet, aspectDeg }
-  // natalPositions: { Sun: { sidereal: 191.35 }, Mars: { sidereal: 335.28 }, ... }
   if (!transits || !Array.isArray(transits) || !natalPositions) {
     return res.status(400).json({ error: 'transits (array) and natalPositions required' })
   }
 
-  const years = Math.min(scanYears || 2, 3) // cap at 3 years each direction
-  const now = new Date()
-  const scanStart = new Date(now.getTime() - years * 365 * DAY)
-  const scanEnd = new Date(now.getTime() + years * 365 * DAY)
-
   try {
-    // Collect unique transit planets needed
-    const transitPlanets = [...new Set(transits.map(t => t.transitPlanet))]
+    const swe = new SwissEph()
+    await swe.initSwissEph()
+    swe.set_sid_mode(0, 0, 0) // Fagan-Allen
 
-    // Precompute all positions in one pass
-    const cache = precomputePositions(transitPlanets, scanStart, scanEnd)
+    const years = Math.min(scanYears || 2, 3)
+    const now = new Date()
+    const nowJd = dateToJd(swe, now)
+    const startJd = nowJd - years * 365.25
+    const endJd = nowJd + years * 365.25
+
+    // Collect unique transit planet IDs
+    const transitIdSet = new Set()
+    for (const t of transits) {
+      const id = PLANET_IDS[t.transitPlanet]
+      if (id != null) transitIdSet.add(id)
+    }
+    const transitIds = [...transitIdSet]
+
+    // Precompute daily positions in one pass
+    const cache = precomputeDaily(swe, transitIds, startJd, endJd)
 
     // Process each transit
     const results = []
 
     for (const t of transits) {
-      const ephPlanet = PLANET_MAP[t.transitPlanet]
-      if (!ephPlanet) continue
+      const transitId = PLANET_IDS[t.transitPlanet]
+      if (transitId == null) continue
 
       const natalPos = natalPositions[t.natalPlanet]
-      if (!natalPos) continue
+      if (!natalPos?.sidereal) continue
 
       const natalLng = natalPos.sidereal
-      if (natalLng == null) continue
-
-      const hits = findHitsFromCache(cache, ephPlanet, natalLng, t.aspectDeg)
+      const hits = findHits(swe, cache, transitId, natalLng, t.aspectDeg)
       const maxOrb = OUTER.has(t.transitPlanet) ? 5 : 2
-      const window = findWindow(cache, ephPlanet, natalLng, t.aspectDeg, maxOrb)
+      const window = findWindow(cache, transitId, natalLng, t.aspectDeg, maxOrb)
 
       // Current orb
-      const currentLng = getSiderealLng(ephPlanet, now)
-      const currentOrb = currentLng != null
-        ? Math.round(aspectOrb(currentLng, natalLng, t.aspectDeg) * 1000) / 1000
-        : null
+      const currentLng = getLng(swe, transitId, nowJd)
+      const currentOrb = Math.round(aspectOrb(currentLng, natalLng, t.aspectDeg) * 1000) / 1000
 
       results.push({
         transitPlanet: t.transitPlanet,
@@ -203,7 +198,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       results,
-      scanRange: { start: scanStart.toISOString().slice(0, 10), end: scanEnd.toISOString().slice(0, 10) },
+      scanRange: { start: jdToDateStr(startJd), end: jdToDateStr(endJd) },
     })
   } catch (err) {
     console.error('ephemeris error:', err)
