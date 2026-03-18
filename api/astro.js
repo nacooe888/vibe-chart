@@ -176,6 +176,155 @@ function parseAstroResponse(data, ayanamsa) {
     }
   }
 
+  // Detect natal chart patterns (grand cross, T-square, grand trine, stellium)
+  const patternPlanets = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto']
+  const planetLngs = []
+  patternPlanets.forEach(name => {
+    if (positions[name]) {
+      planetLngs.push({ name, lng: positions[name].sidereal, sign: positions[name].sign })
+    }
+  })
+  // Include ASC/MC as sensitive points
+  if (positions.ASC) planetLngs.push({ name: 'ASC', lng: positions.ASC.sidereal, sign: positions.ASC.sign })
+  if (positions.MC) planetLngs.push({ name: 'MC', lng: positions.MC.sidereal, sign: positions.MC.sign })
+
+  const MODALITIES = {
+    Aries:'cardinal', Cancer:'cardinal', Libra:'cardinal', Capricorn:'cardinal',
+    Taurus:'fixed', Leo:'fixed', Scorpio:'fixed', Aquarius:'fixed',
+    Gemini:'mutable', Virgo:'mutable', Sagittarius:'mutable', Pisces:'mutable',
+  }
+  const ELEMENTS = {
+    Aries:'fire', Leo:'fire', Sagittarius:'fire',
+    Taurus:'earth', Virgo:'earth', Capricorn:'earth',
+    Gemini:'air', Libra:'air', Aquarius:'air',
+    Cancer:'water', Scorpio:'water', Pisces:'water',
+  }
+
+  function orbBtw(a, b) { let d = Math.abs(a - b) % 360; if (d > 180) d = 360 - d; return d }
+
+  const patterns = []
+
+  // Group planets by degree cluster within each modality (for cross/T-square detection)
+  // Planets at similar degrees in the same modality are part of a cross configuration
+  const byModality = { cardinal: [], fixed: [], mutable: [] }
+  planetLngs.forEach(p => {
+    const mod = MODALITIES[p.sign]
+    if (mod) byModality[mod].push(p)
+  })
+
+  Object.entries(byModality).forEach(([modality, planets]) => {
+    if (planets.length < 3) return
+    // Find clusters: planets within 6° of each other (by degree within sign)
+    const degInSign = planets.map(p => ({ ...p, deg: p.lng % 30 }))
+    // Try each planet as a cluster center
+    const used = new Set()
+    degInSign.sort((a, b) => a.deg - b.deg)
+
+    for (let i = 0; i < degInSign.length; i++) {
+      if (used.has(degInSign[i].name)) continue
+      const cluster = [degInSign[i]]
+      for (let j = 0; j < degInSign.length; j++) {
+        if (i === j || used.has(degInSign[j].name)) continue
+        if (Math.abs(degInSign[j].deg - degInSign[i].deg) <= 6) {
+          cluster.push(degInSign[j])
+        }
+      }
+      if (cluster.length >= 4) {
+        // Check how many signs are represented — need 3-4 for cross/T-square
+        const signs = new Set(cluster.map(p => p.sign))
+        if (signs.size >= 4) {
+          cluster.forEach(p => used.add(p.name))
+          const avgDeg = Math.round(cluster.reduce((s, p) => s + p.deg, 0) / cluster.length)
+          patterns.push({
+            type: 'grand-cross',
+            modality,
+            degree: avgDeg,
+            planets: cluster.map(p => p.name),
+            signs: [...signs],
+          })
+        } else if (signs.size >= 3) {
+          cluster.forEach(p => used.add(p.name))
+          const avgDeg = Math.round(cluster.reduce((s, p) => s + p.deg, 0) / cluster.length)
+          patterns.push({
+            type: 't-square',
+            modality,
+            degree: avgDeg,
+            planets: cluster.map(p => p.name),
+            signs: [...signs],
+          })
+        }
+      } else if (cluster.length === 3) {
+        const signs = new Set(cluster.map(p => p.sign))
+        if (signs.size >= 3) {
+          cluster.forEach(p => used.add(p.name))
+          const avgDeg = Math.round(cluster.reduce((s, p) => s + p.deg, 0) / cluster.length)
+          patterns.push({
+            type: 't-square',
+            modality,
+            degree: avgDeg,
+            planets: cluster.map(p => p.name),
+            signs: [...signs],
+          })
+        }
+      }
+    }
+  })
+
+  // Grand trines: 3+ planets in the same element within 6° of each other (by degree in sign)
+  const byElement = { fire: [], earth: [], air: [], water: [] }
+  planetLngs.forEach(p => {
+    const el = ELEMENTS[p.sign]
+    if (el) byElement[el].push(p)
+  })
+
+  Object.entries(byElement).forEach(([element, planets]) => {
+    if (planets.length < 3) return
+    const degInSign = planets.map(p => ({ ...p, deg: p.lng % 30 }))
+    const cluster = []
+    degInSign.sort((a, b) => a.deg - b.deg)
+    for (let i = 0; i < degInSign.length; i++) {
+      const group = [degInSign[i]]
+      for (let j = 0; j < degInSign.length; j++) {
+        if (i === j) continue
+        if (Math.abs(degInSign[j].deg - degInSign[i].deg) <= 6) group.push(degInSign[j])
+      }
+      if (group.length >= 3) {
+        const signs = new Set(group.map(p => p.sign))
+        if (signs.size >= 3) {
+          const avgDeg = Math.round(group.reduce((s, p) => s + p.deg, 0) / group.length)
+          patterns.push({
+            type: 'grand-trine',
+            element,
+            degree: avgDeg,
+            planets: group.map(p => p.name),
+            signs: [...signs],
+          })
+          break
+        }
+      }
+    }
+  })
+
+  // Stelliums: 3+ planets in the same sign
+  const bySign = {}
+  planetLngs.filter(p => !['ASC','MC'].includes(p.name)).forEach(p => {
+    if (!bySign[p.sign]) bySign[p.sign] = []
+    bySign[p.sign].push(p)
+  })
+  Object.entries(bySign).forEach(([sign, planets]) => {
+    if (planets.length >= 3) {
+      patterns.push({
+        type: 'stellium',
+        sign,
+        planets: planets.map(p => p.name),
+      })
+    }
+  })
+
+  if (patterns.length > 0) {
+    positions._patterns = patterns
+  }
+
   return positions
 }
 

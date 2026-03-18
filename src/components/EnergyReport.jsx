@@ -119,6 +119,24 @@ export function buildSkyContext(natal, transits) {
         ctx += `- Natal ${pl}: ${p[pl].sign} ${p[pl].degree}°${p[pl].minute ? p[pl].minute+"'" : ''}${p[pl].house ? ' · ' + p[pl].house + 'th house' : ''}\n`;
       }
     });
+
+    // Natal chart patterns
+    if (p._patterns?.length > 0) {
+      ctx += '\nNATAL CHART PATTERNS:\n';
+      p._patterns.forEach(pat => {
+        if (pat.type === 'grand-cross') {
+          ctx += `- GRAND CROSS in ${pat.modality} signs at ~${pat.degree}°: ${pat.planets.join(', ')} (${pat.signs.join(', ')})\n`;
+        } else if (pat.type === 't-square') {
+          ctx += `- T-SQUARE in ${pat.modality} signs at ~${pat.degree}°: ${pat.planets.join(', ')} (${pat.signs.join(', ')})\n`;
+        } else if (pat.type === 'grand-trine') {
+          ctx += `- GRAND TRINE in ${pat.element} signs at ~${pat.degree}°: ${pat.planets.join(', ')} (${pat.signs.join(', ')})\n`;
+        } else if (pat.type === 'stellium') {
+          ctx += `- STELLIUM in ${pat.sign}: ${pat.planets.join(', ')}\n`;
+        }
+      });
+      ctx += 'When a transit activates one planet in a pattern, it activates the ENTIRE pattern. Note which patterns are being activated by current transits.\n';
+    }
+
     ctx += '\n';
   }
 
