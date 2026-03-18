@@ -270,6 +270,7 @@ function detectPatterns(transitPositions, natalPositions) {
         color: PLANET_COLORS[natal] || '#C49FFF',
         title: `${aspects.length} transits hitting natal ${natal}`,
         subtitle: aspects.map(a => `${a.transit} ${a.aspect.name} (${a.orb.toFixed(1)}°)`).join(' · '),
+        aspects,
       });
     }
   });
@@ -1715,18 +1716,16 @@ Respond with ONLY valid JSON:
               );
             })()}
 
-            {/* Non-mass-activation patterns (reciprocal, convergence) */}
-            {patterns.filter(p => p.type !== 'mass-activation').length > 0 && (
+            {/* Reciprocal patterns */}
+            {patterns.filter(p => p.type === 'reciprocal').length > 0 && (
               <>
                 <div style={{
                   fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
                   color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
-                }}>active patterns</div>
-                {patterns.filter(p => p.type !== 'mass-activation').map((p, i) => (
+                }}>reciprocal transits</div>
+                {patterns.filter(p => p.type === 'reciprocal').map((p, i) => (
                   <div key={i} onClick={() => openPatternDetail(p)} style={{
-                    background: p.type === 'reciprocal'
-                      ? `linear-gradient(135deg, ${p.color}12, ${p.color2}12)`
-                      : `${p.color}12`,
+                    background: `linear-gradient(135deg, ${p.color}12, ${p.color2}12)`,
                     border: `1px solid ${p.color}30`,
                     borderRadius: 16,
                     padding: "18px 20px",
@@ -1735,47 +1734,88 @@ Respond with ONLY valid JSON:
                     transition: "border-color 0.2s",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                      <div style={{
-                        fontSize: 24,
-                        color: p.color,
-                        width: 32,
-                        textAlign: "center",
-                        flexShrink: 0,
-                      }}>
-                        {p.icon}
-                      </div>
+                      <div style={{ fontSize: 24, color: p.color, width: 32, textAlign: "center", flexShrink: 0 }}>⟡</div>
                       <div style={{ flex: 1 }}>
-                        <div style={{
-                          fontSize: 9,
-                          letterSpacing: "0.2em",
-                          textTransform: "uppercase",
-                          color: p.color,
-                          opacity: 0.7,
-                          marginBottom: 4,
-                        }}>
-                          {PATTERN_LABELS[p.type]}
+                        <div style={{ fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase", color: p.color, opacity: 0.7, marginBottom: 4 }}>
+                          reciprocal transit
                         </div>
-                        <div style={{
-                          fontSize: 16,
-                          color: "rgba(255,255,255,0.85)",
-                          letterSpacing: "0.04em",
-                          lineHeight: 1.4,
-                        }}>
+                        <div style={{ fontSize: 16, color: "rgba(255,255,255,0.85)", letterSpacing: "0.04em", lineHeight: 1.4 }}>
                           {p.title}
                         </div>
                       </div>
                     </div>
-                    <div style={{
-                      fontSize: 11,
-                      color: "rgba(255,255,255,0.35)",
-                      letterSpacing: "0.06em",
-                      lineHeight: 1.7,
-                      paddingLeft: 44,
-                    }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.06em", lineHeight: 1.7, paddingLeft: 44 }}>
                       {p.subtitle}
                     </div>
                   </div>
                 ))}
+                <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.06)", margin: "10px auto 6px" }}/>
+              </>
+            )}
+
+            {/* Convergence bar chart */}
+            {(() => {
+              const convergences = patterns.filter(p => p.type === 'convergence' && p.aspects?.length >= 2);
+              if (convergences.length === 0) return null;
+              convergences.sort((a, b) => b.aspects.length - a.aspects.length);
+              const maxCount = convergences[0].aspects.length;
+
+              return (
+                <>
+                  <div style={{
+                    fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
+                  }}>convergence</div>
+                  <div style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 16,
+                    padding: "18px 16px 12px",
+                  }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {convergences.map((c, ci) => {
+                        const barPct = (c.aspects.length / maxCount) * 100;
+                        return (
+                          <div key={ci} onClick={() => openPatternDetail(c)}
+                            style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", animation: `fadeUp 0.3s ${ci * 0.05}s ease both` }}>
+                            {/* Natal planet glyph */}
+                            <div style={{ width: 28, textAlign: "center", fontSize: 18, color: c.color, flexShrink: 0 }}>
+                              {PLANET_GLYPHS[c.planet] || c.planet}
+                            </div>
+                            {/* Bar */}
+                            <div style={{ flex: 1, position: "relative", height: 28 }}>
+                              <div style={{
+                                position: "absolute", top: 0, left: 0, bottom: 0,
+                                width: `${barPct}%`, minWidth: 20,
+                                background: `linear-gradient(90deg, ${c.color}30, ${c.color}12)`,
+                                borderRadius: 8,
+                                border: `1px solid ${c.color}20`,
+                                display: "flex", alignItems: "center", paddingLeft: 10, gap: 4,
+                              }}>
+                                {/* Transit planet glyphs inside the bar */}
+                                {c.aspects.map((a, ai) => (
+                                  <span key={ai} style={{ fontSize: 12, color: PLANET_COLORS[a.transit] || '#C49FFF', opacity: 0.8 }}>
+                                    {PLANET_GLYPHS[a.transit] || a.transit}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Count */}
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", width: 20, textAlign: "right", flexShrink: 0 }}>
+                              {c.aspects.length}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{
+                      textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
+                      color: "rgba(255,255,255,0.15)", marginTop: 10,
+                    }}>natal points receiving multiple transits · tap for details</div>
+                  </div>
+                </>
+              );
+            })()}
                 <div style={{
                   width: 36,
                   height: 1,
