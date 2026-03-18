@@ -1733,6 +1733,75 @@ Respond with ONLY valid JSON:
                       color: "rgba(255,255,255,0.2)", marginTop: 6,
                     }}>tap a planet for details</div>
                   </div>
+                </>
+              );
+            })()}
+
+            {/* Natal activation vertical bar chart */}
+            {natalActivation.length > 0 && (() => {
+              const maxCount = natalActivation[0].count;
+              const barMaxH = 100;
+              return (
+                <>
+                  <div style={{
+                    fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.2)", textAlign: "center", marginTop: 6, marginBottom: 4,
+                  }}>natal activation</div>
+                  <div style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 16,
+                    padding: "16px 12px 10px",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 6, height: barMaxH + 24 }}>
+                      {natalActivation.map((n, ni) => {
+                        const barH = Math.max((n.count / maxCount) * barMaxH, 8);
+                        return (
+                          <div key={ni} onClick={() => openPatternDetail({
+                            type: 'convergence',
+                            planet: n.planet,
+                            color: n.color,
+                            title: `${n.count} transits hitting natal ${n.planet}`,
+                            subtitle: n.aspects.map(a => `${a.transit} ${a.aspect.name} (${a.orb.toFixed(1)}°)`).join(' · '),
+                            aspects: n.aspects,
+                          })}
+                            style={{
+                              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                              cursor: "pointer", animation: `fadeUp 0.3s ${ni * 0.04}s ease both`,
+                              flex: 1, maxWidth: 36,
+                            }}>
+                            {/* Count label */}
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+                              {n.count}
+                            </div>
+                            {/* Vertical bar */}
+                            <div style={{
+                              width: "100%",
+                              height: barH,
+                              background: `linear-gradient(180deg, ${n.color}40, ${n.color}15)`,
+                              borderRadius: 6,
+                              border: `1px solid ${n.color}20`,
+                            }}/>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Glyphs row below bars */}
+                    <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 6 }}>
+                      {natalActivation.map((n, ni) => (
+                        <div key={ni} style={{
+                          flex: 1, maxWidth: 36, textAlign: "center",
+                          fontSize: 16, color: n.color, opacity: 0.8,
+                        }}>
+                          {n.glyph}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{
+                      textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
+                      color: "rgba(255,255,255,0.12)", marginTop: 8,
+                    }}>tap a bar for details</div>
+                  </div>
                   <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.06)", margin: "10px auto 6px" }}/>
                 </>
               );
@@ -1775,68 +1844,7 @@ Respond with ONLY valid JSON:
               </>
             )}
 
-            {/* Natal activation bar chart — all natal points */}
-            {natalActivation.length > 0 && (() => {
-              const maxCount = natalActivation[0].count;
-              return (
-                <>
-                  <div style={{
-                    fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
-                  }}>natal activation</div>
-                  <div style={{
-                    background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 16,
-                    padding: "18px 16px 12px",
-                  }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {natalActivation.map((n, ni) => {
-                        const barPct = (n.count / maxCount) * 100;
-                        return (
-                          <div key={ni} onClick={() => openPatternDetail({
-                            type: 'convergence',
-                            planet: n.planet,
-                            color: n.color,
-                            title: `${n.count} transits hitting natal ${n.planet}`,
-                            subtitle: n.aspects.map(a => `${a.transit} ${a.aspect.name} (${a.orb.toFixed(1)}°)`).join(' · '),
-                            aspects: n.aspects,
-                          })}
-                            style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", animation: `fadeUp 0.3s ${ni * 0.04}s ease both` }}>
-                            <div style={{ width: 28, textAlign: "center", fontSize: 18, color: n.color, flexShrink: 0 }}>
-                              {n.glyph}
-                            </div>
-                            <div style={{ flex: 1, position: "relative", height: 28 }}>
-                              <div style={{
-                                position: "absolute", top: 0, left: 0, bottom: 0,
-                                width: `${barPct}%`, minWidth: 24,
-                                background: `linear-gradient(90deg, ${n.color}30, ${n.color}10)`,
-                                borderRadius: 8,
-                                border: `1px solid ${n.color}18`,
-                                display: "flex", alignItems: "center", paddingLeft: 10, gap: 4,
-                              }}>
-                                {n.aspects.map((a, ai) => (
-                                  <span key={ai} style={{ fontSize: 11, color: PLANET_COLORS[a.transit] || '#C49FFF', opacity: 0.75 }}>
-                                    {PLANET_GLYPHS[a.transit] || a.transit}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", width: 16, textAlign: "right", flexShrink: 0 }}>
-                              {n.count}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div style={{
-                      textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
-                      color: "rgba(255,255,255,0.15)", marginTop: 10,
-                    }}>transits hitting each natal point · tap for details</div>
-                  </div>
-                </>
-              );
-            })()}
+            {/* (natal activation chart is above, after pie chart) */}
                 <div style={{
                   width: 36,
                   height: 1,
