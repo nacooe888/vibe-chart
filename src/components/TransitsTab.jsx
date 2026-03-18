@@ -183,6 +183,29 @@ function getAllAspects(transitPositions, natalPositions) {
   return all;
 }
 
+// Overview: all transit planets grouped by activation count
+function computeActivationOverview(transitPositions, natalPositions) {
+  const allAspects = getAllAspects(transitPositions, natalPositions);
+  if (allAspects.length === 0) return [];
+  const byTransit = {};
+  allAspects.filter(a => a.orb <= 5).forEach(a => {
+    if (!byTransit[a.transit]) byTransit[a.transit] = [];
+    byTransit[a.transit].push(a);
+  });
+  return Object.entries(byTransit)
+    .map(([planet, aspects]) => ({
+      planet,
+      color: PLANET_COLORS[planet] || '#C49FFF',
+      glyph: PLANET_GLYPHS[planet] || planet,
+      aspects: aspects.sort((a, b) => a.orb - b.orb),
+      count: aspects.length,
+      // Weight: sum of inverse orbs (tighter aspects = more weight)
+      weight: aspects.reduce((s, a) => s + 1 / Math.max(a.orb, 0.1), 0),
+    }))
+    .filter(p => p.count > 0)
+    .sort((a, b) => b.weight - a.weight);
+}
+
 function detectPatterns(transitPositions, natalPositions) {
   const patterns = [];
   const allAspects = getAllAspects(transitPositions, natalPositions);
@@ -732,6 +755,7 @@ export default function TransitsTab() {
   const [patternLoading, setPatternLoading] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [skyEvents, setSkyEvents] = useState(null);
+  const [selectedActivation, setSelectedActivation] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [eventDetail, setEventDetail] = useState(null);
   const [eventDetailLoading, setEventDetailLoading] = useState(false);
@@ -862,6 +886,7 @@ export default function TransitsTab() {
   const positions = transitChart?.positions;
   const dateLabel = transitChart?.date || 'today';
   const patterns = detectPatterns(positions, natalChart?.positions);
+  const activationOverview = computeActivationOverview(positions, natalChart?.positions);
   const reciprocals = patterns.filter(p => p.type === 'reciprocal');
   const estimatedWindows = computeTransitWindows(positions, natalChart?.positions, reciprocals);
   const [ephemerisWindows, setEphemerisWindows] = useState(null);
@@ -1029,6 +1054,141 @@ Respond with ONLY valid JSON:
       setEventDetail({ error: true });
     }
     setEventDetailLoading(false);
+  }
+
+  // Activation detail — per-planet pie chart + interpretation
+  if (selectedActivation) {
+    const act = selectedActivation;
+    const aspects = act.aspects;
+    const R = 90;
+    const cx = R + 14;
+    const cy = R + 14;
+    const weights = aspects.map(a => 1 / Math.max(a.orb, 0.1));
+    const totalWeight = weights.reduce((s, w) => s + w, 0);
+    let startAngle = -90;
+
+    const slices = aspects.map((a, si) => {
+      const pct = weights[si] / totalWeight;
+      const sweepAngle = pct * 360;
+      const endAngle = startAngle + sweepAngle;
+      const largeArc = sweepAngle > 180 ? 1 : 0;
+      const startRad = (startAngle * Math.PI) / 180;
+      const endRad = (endAngle * Math.PI) / 180;
+      const x1 = cx + R * Math.cos(startRad);
+      const y1 = cy + R * Math.sin(startRad);
+      const x2 = cx + R * Math.cos(endRad);
+      const y2 = cy + R * Math.sin(endRad);
+      const midRad = ((startAngle + endAngle) / 2 * Math.PI) / 180;
+      const labelR = R * 0.65;
+      const lx = cx + labelR * Math.cos(midRad);
+      const ly = cy + labelR * Math.sin(midRad);
+      const natalColor = PLANET_COLORS[a.natal] || 'rgba(255,255,255,0.5)';
+      const path = `M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+      startAngle = endAngle;
+      return { path, lx, ly, aspect: a, color: natalColor };
+    });
+
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "radial-gradient(ellipse at 40% 25%, rgba(160,138,255,0.1) 0%, transparent 55%), #050510",
+        fontFamily: "'Cormorant Garamond', serif",
+        color: "white",
+        padding: "36px 20px 100px",
+      }}>
+        <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          <button onClick={() => setSelectedActivation(null)}
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            ← back to sky
+          </button>
+
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: act.color, opacity: 0.7, marginBottom: 8 }}>
+              mass activation
+            </div>
+            <h2 style={{ fontWeight: 300, fontSize: 28, margin: 0, letterSpacing: "0.04em", color: act.color }}>
+              {act.planet}
+            </h2>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
+              activating {act.count} natal points
+            </div>
+          </div>
+
+          {/* Per-planet pie chart */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+            <svg viewBox={`0 0 ${(R+14)*2} ${(R+14)*2}`} style={{ width: 220, height: 220 }}>
+              {slices.map((s, si) => (
+                <g key={si} onClick={() => openPatternDetail({
+                  type: 'mass-activation',
+                  planet: act.planet,
+                  color: act.color,
+                  title: `${act.planet} ${s.aspect.aspect.name} ${s.aspect.natal}`,
+                  subtitle: `${s.aspect.aspect.name} ${s.aspect.natal} — ${s.aspect.orb.toFixed(1)}° orb`,
+                })} style={{ cursor: "pointer" }}>
+                  <path d={s.path} fill={s.color} fillOpacity={0.2} stroke={s.color} strokeWidth={1} strokeOpacity={0.4} />
+                  <text x={s.lx} y={s.ly - 7} textAnchor="middle" fill={s.color} fontSize={18} fontFamily="serif">
+                    {PLANET_GLYPHS[s.aspect.natal] || s.aspect.natal}
+                  </text>
+                  <text x={s.lx} y={s.ly + 9} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize={9} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">
+                    {s.aspect.aspect.glyph} {s.aspect.orb.toFixed(1)}°
+                  </text>
+                </g>
+              ))}
+              <circle cx={cx} cy={cy} r={22} fill="#050510" stroke={act.color} strokeWidth={1} strokeOpacity={0.3} />
+              <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill={act.color} fontSize={26} fontFamily="serif">
+                {act.glyph}
+              </text>
+            </svg>
+          </div>
+
+          {/* Aspect list */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {aspects.map((a, ai) => {
+              const nColor = PLANET_COLORS[a.natal] || '#C49FFF';
+              return (
+                <div key={ai} onClick={() => openPatternDetail({
+                  type: 'mass-activation',
+                  planet: act.planet,
+                  color: act.color,
+                  title: `${act.planet} ${a.aspect.name} ${a.natal}`,
+                  subtitle: `${a.aspect.name} ${a.natal} — ${a.orb.toFixed(1)}° orb`,
+                })} style={{
+                  background: `${nColor}08`,
+                  border: `1px solid ${nColor}15`,
+                  borderRadius: 12,
+                  padding: "12px 16px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  animation: `fadeUp 0.3s ${ai * 0.05}s ease both`,
+                }}>
+                  <div style={{ fontSize: 18, color: nColor, width: 24, textAlign: "center" }}>
+                    {PLANET_GLYPHS[a.natal] || a.natal}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", letterSpacing: "0.04em" }}>
+                      {a.aspect.name} {a.natal}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
+                    {a.orb.toFixed(1)}°
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{
+            textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
+            color: "rgba(255,255,255,0.2)", marginTop: 16,
+          }}>tap any aspect for interpretation</div>
+        </div>
+        <style>{`
+          @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        `}</style>
+      </div>
+    );
   }
 
   // Event detail overlay
@@ -1482,108 +1642,88 @@ Respond with ONLY valid JSON:
               </>
             )}
 
-            {/* Patterns section */}
-            {patterns.length > 0 && (
+            {/* Overview activation pie chart */}
+            {activationOverview.length > 0 && (() => {
+              const R = 90;
+              const cx = R + 14;
+              const cy = R + 14;
+              const totalWeight = activationOverview.reduce((s, p) => s + p.weight, 0);
+              let startAngle = -90;
+
+              const slices = activationOverview.map(p => {
+                const sweepAngle = (p.weight / totalWeight) * 360;
+                const endAngle = startAngle + sweepAngle;
+                const largeArc = sweepAngle > 180 ? 1 : 0;
+                const startRad = (startAngle * Math.PI) / 180;
+                const endRad = (endAngle * Math.PI) / 180;
+                const x1 = cx + R * Math.cos(startRad);
+                const y1 = cy + R * Math.sin(startRad);
+                const x2 = cx + R * Math.cos(endRad);
+                const y2 = cy + R * Math.sin(endRad);
+                const midRad = ((startAngle + endAngle) / 2 * Math.PI) / 180;
+                const labelR = R * 0.7;
+                const lx = cx + labelR * Math.cos(midRad);
+                const ly = cy + labelR * Math.sin(midRad);
+                const path = sweepAngle >= 359.9
+                  ? `M ${cx-R} ${cy} A ${R} ${R} 0 1 1 ${cx+R} ${cy} A ${R} ${R} 0 1 1 ${cx-R} ${cy} Z`
+                  : `M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                startAngle = endAngle;
+                return { ...p, path, lx, ly, sweepAngle };
+              });
+
+              return (
+                <>
+                  <div style={{
+                    fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
+                  }}>planetary activation</div>
+                  <div style={{
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 16,
+                    padding: "20px 16px 12px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <svg viewBox={`0 0 ${(R+14)*2} ${(R+14)*2}`} style={{ width: 220, height: 220 }}>
+                        {slices.map((s, si) => (
+                          <g key={si} onClick={() => setSelectedActivation(s)} style={{ cursor: "pointer" }}>
+                            <path d={s.path} fill={s.color} fillOpacity={0.15} stroke={s.color} strokeWidth={1.5} strokeOpacity={0.35} />
+                            {s.sweepAngle > 15 && (
+                              <>
+                                <text x={s.lx} y={s.ly - 5} textAnchor="middle" fill={s.color} fontSize={20} fontFamily="serif" opacity={0.9}>
+                                  {s.glyph}
+                                </text>
+                                <text x={s.lx} y={s.ly + 11} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9} fontFamily="'Cormorant Garamond',serif">
+                                  {s.count} pts
+                                </text>
+                              </>
+                            )}
+                          </g>
+                        ))}
+                        <circle cx={cx} cy={cy} r={20} fill="#050510" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+                        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.3)" fontSize={8} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em">
+                          sky
+                        </text>
+                      </svg>
+                    </div>
+                    <div style={{
+                      textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
+                      color: "rgba(255,255,255,0.2)", marginTop: 6,
+                    }}>tap a planet for details</div>
+                  </div>
+                  <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.06)", margin: "10px auto 6px" }}/>
+                </>
+              );
+            })()}
+
+            {/* Non-mass-activation patterns (reciprocal, convergence) */}
+            {patterns.filter(p => p.type !== 'mass-activation').length > 0 && (
               <>
                 <div style={{
-                  fontSize: 10,
-                  letterSpacing: "0.28em",
-                  textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.2)",
-                  textAlign: "center",
-                  marginBottom: 4,
-                }}>
-                  active patterns
-                </div>
-                {patterns.map((p, i) => {
-                  // Mass activation: render as pie chart
-                  if (p.type === 'mass-activation' && p.aspects?.length >= 3) {
-                    const aspects = p.aspects;
-                    // Weight each slice by inverse orb (tighter = bigger slice)
-                    const weights = aspects.map(a => 1 / Math.max(a.orb, 0.1));
-                    const totalWeight = weights.reduce((s, w) => s + w, 0);
-                    const R = 70;
-                    const cx = R + 10;
-                    const cy = R + 10;
-                    let startAngle = -90; // start from top
-
-                    const slices = aspects.map((a, si) => {
-                      const pct = weights[si] / totalWeight;
-                      const sweepAngle = pct * 360;
-                      const endAngle = startAngle + sweepAngle;
-                      const largeArc = sweepAngle > 180 ? 1 : 0;
-
-                      const startRad = (startAngle * Math.PI) / 180;
-                      const endRad = (endAngle * Math.PI) / 180;
-                      const x1 = cx + R * Math.cos(startRad);
-                      const y1 = cy + R * Math.sin(startRad);
-                      const x2 = cx + R * Math.cos(endRad);
-                      const y2 = cy + R * Math.sin(endRad);
-
-                      // Label position at midpoint of arc
-                      const midRad = ((startAngle + endAngle) / 2 * Math.PI) / 180;
-                      const labelR = R * 0.65;
-                      const lx = cx + labelR * Math.cos(midRad);
-                      const ly = cy + labelR * Math.sin(midRad);
-
-                      const natalColor = PLANET_COLORS[a.natal] || 'rgba(255,255,255,0.5)';
-                      const path = `M ${cx} ${cy} L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-
-                      startAngle = endAngle;
-
-                      return {
-                        path, lx, ly, aspect: a, color: natalColor, pct,
-                        natalGlyph: PLANET_GLYPHS[a.natal] || a.natal,
-                        aspectGlyph: a.aspect.glyph,
-                      };
-                    });
-
-                    return (
-                      <div key={i} style={{
-                        background: `${p.color}08`,
-                        border: `1px solid ${p.color}20`,
-                        borderRadius: 16,
-                        padding: "18px 16px",
-                        animation: `fadeUp 0.5s ${i * 0.08}s ease both`,
-                      }}>
-                        <div style={{
-                          fontSize: 9, letterSpacing: "0.2em", textTransform: "uppercase",
-                          color: p.color, opacity: 0.7, textAlign: "center", marginBottom: 4,
-                        }}>mass activation</div>
-                        <div style={{
-                          fontSize: 15, color: "rgba(255,255,255,0.8)", textAlign: "center",
-                          letterSpacing: "0.04em", marginBottom: 14,
-                        }}>{p.title}</div>
-
-                        <div style={{ display: "flex", justifyContent: "center" }}>
-                          <svg viewBox={`0 0 ${(R+10)*2} ${(R+10)*2}`} style={{ width: 180, height: 180 }}>
-                            {slices.map((s, si) => (
-                              <g key={si} onClick={(e) => { e.stopPropagation(); openPatternDetail({
-                                ...p,
-                                title: `${p.planet} ${s.aspect.aspect.name} ${s.aspect.natal}`,
-                                subtitle: `${s.aspect.aspect.name} ${s.aspect.natal} — ${s.aspect.orb.toFixed(1)}° orb`,
-                              }); }} style={{ cursor: "pointer" }}>
-                                <path d={s.path} fill={s.color} fillOpacity={0.2} stroke={s.color} strokeWidth={1} strokeOpacity={0.4} />
-                                <text x={s.lx} y={s.ly - 6} textAnchor="middle" fill={s.color} fontSize={14} fontFamily="serif">{s.natalGlyph}</text>
-                                <text x={s.lx} y={s.ly + 8} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={8} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">{s.aspectGlyph} {s.aspect.orb.toFixed(1)}°</text>
-                              </g>
-                            ))}
-                            {/* Center: transit planet */}
-                            <circle cx={cx} cy={cy} r={18} fill="#050510" stroke={p.color} strokeWidth={1} strokeOpacity={0.3} />
-                            <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill={p.color} fontSize={20} fontFamily="serif">{PLANET_GLYPHS[p.planet] || p.planet}</text>
-                          </svg>
-                        </div>
-
-                        <div style={{
-                          textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
-                          color: "rgba(255,255,255,0.2)", marginTop: 8,
-                        }}>tap a slice for details</div>
-                      </div>
-                    );
-                  }
-
-                  // Regular pattern card (reciprocal, convergence)
-                  return (
+                  fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
+                }}>active patterns</div>
+                {patterns.filter(p => p.type !== 'mass-activation').map((p, i) => (
                   <div key={i} onClick={() => openPatternDetail(p)} style={{
                     background: p.type === 'reciprocal'
                       ? `linear-gradient(135deg, ${p.color}12, ${p.color2}12)`
@@ -1636,8 +1776,7 @@ Respond with ONLY valid JSON:
                       {p.subtitle}
                     </div>
                   </div>
-                  );
-                })}
+                ))}
                 <div style={{
                   width: 36,
                   height: 1,
