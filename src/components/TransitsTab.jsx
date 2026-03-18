@@ -199,8 +199,7 @@ function computeActivationOverview(transitPositions, natalPositions) {
       glyph: PLANET_GLYPHS[planet] || planet,
       aspects: aspects.sort((a, b) => a.orb - b.orb),
       count: aspects.length,
-      // Weight: sum of inverse orbs (tighter aspects = more weight)
-      weight: aspects.reduce((s, a) => s + 1 / Math.max(a.orb, 0.1), 0),
+      weight: aspects.length,
     }))
     .filter(p => p.count > 0)
     .sort((a, b) => b.weight - a.weight);
