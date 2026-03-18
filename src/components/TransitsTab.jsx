@@ -205,6 +205,27 @@ function computeActivationOverview(transitPositions, natalPositions) {
     .sort((a, b) => b.weight - a.weight);
 }
 
+// All natal points ranked by how many transits are hitting them
+function computeNatalActivation(transitPositions, natalPositions) {
+  const allAspects = getAllAspects(transitPositions, natalPositions);
+  if (allAspects.length === 0) return [];
+  const byNatal = {};
+  allAspects.filter(a => a.orb <= 5).forEach(a => {
+    if (!byNatal[a.natal]) byNatal[a.natal] = [];
+    byNatal[a.natal].push(a);
+  });
+  return Object.entries(byNatal)
+    .map(([planet, aspects]) => ({
+      planet,
+      color: PLANET_COLORS[planet] || '#C49FFF',
+      glyph: PLANET_GLYPHS[planet] || planet,
+      aspects: aspects.sort((a, b) => a.orb - b.orb),
+      count: aspects.length,
+    }))
+    .filter(p => p.count > 0)
+    .sort((a, b) => b.count - a.count);
+}
+
 function detectPatterns(transitPositions, natalPositions) {
   const patterns = [];
   const allAspects = getAllAspects(transitPositions, natalPositions);
@@ -887,6 +908,7 @@ export default function TransitsTab() {
   const dateLabel = transitChart?.date || 'today';
   const patterns = detectPatterns(positions, natalChart?.positions);
   const activationOverview = computeActivationOverview(positions, natalChart?.positions);
+  const natalActivation = computeNatalActivation(positions, natalChart?.positions);
   const reciprocals = patterns.filter(p => p.type === 'reciprocal');
   const estimatedWindows = computeTransitWindows(positions, natalChart?.positions, reciprocals);
   const [ephemerisWindows, setEphemerisWindows] = useState(null);
@@ -1753,19 +1775,15 @@ Respond with ONLY valid JSON:
               </>
             )}
 
-            {/* Convergence bar chart */}
-            {(() => {
-              const convergences = patterns.filter(p => p.type === 'convergence' && p.aspects?.length >= 2);
-              if (convergences.length === 0) return null;
-              convergences.sort((a, b) => b.aspects.length - a.aspects.length);
-              const maxCount = convergences[0].aspects.length;
-
+            {/* Natal activation bar chart — all natal points */}
+            {natalActivation.length > 0 && (() => {
+              const maxCount = natalActivation[0].count;
               return (
                 <>
                   <div style={{
                     fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
                     color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
-                  }}>convergence</div>
+                  }}>natal activation</div>
                   <div style={{
                     background: "rgba(255,255,255,0.02)",
                     border: "1px solid rgba(255,255,255,0.06)",
@@ -1773,36 +1791,39 @@ Respond with ONLY valid JSON:
                     padding: "18px 16px 12px",
                   }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {convergences.map((c, ci) => {
-                        const barPct = (c.aspects.length / maxCount) * 100;
+                      {natalActivation.map((n, ni) => {
+                        const barPct = (n.count / maxCount) * 100;
                         return (
-                          <div key={ci} onClick={() => openPatternDetail(c)}
-                            style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", animation: `fadeUp 0.3s ${ci * 0.05}s ease both` }}>
-                            {/* Natal planet glyph */}
-                            <div style={{ width: 28, textAlign: "center", fontSize: 18, color: c.color, flexShrink: 0 }}>
-                              {PLANET_GLYPHS[c.planet] || c.planet}
+                          <div key={ni} onClick={() => openPatternDetail({
+                            type: 'convergence',
+                            planet: n.planet,
+                            color: n.color,
+                            title: `${n.count} transits hitting natal ${n.planet}`,
+                            subtitle: n.aspects.map(a => `${a.transit} ${a.aspect.name} (${a.orb.toFixed(1)}°)`).join(' · '),
+                            aspects: n.aspects,
+                          })}
+                            style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", animation: `fadeUp 0.3s ${ni * 0.04}s ease both` }}>
+                            <div style={{ width: 28, textAlign: "center", fontSize: 18, color: n.color, flexShrink: 0 }}>
+                              {n.glyph}
                             </div>
-                            {/* Bar */}
                             <div style={{ flex: 1, position: "relative", height: 28 }}>
                               <div style={{
                                 position: "absolute", top: 0, left: 0, bottom: 0,
-                                width: `${barPct}%`, minWidth: 20,
-                                background: `linear-gradient(90deg, ${c.color}30, ${c.color}12)`,
+                                width: `${barPct}%`, minWidth: 24,
+                                background: `linear-gradient(90deg, ${n.color}30, ${n.color}10)`,
                                 borderRadius: 8,
-                                border: `1px solid ${c.color}20`,
+                                border: `1px solid ${n.color}18`,
                                 display: "flex", alignItems: "center", paddingLeft: 10, gap: 4,
                               }}>
-                                {/* Transit planet glyphs inside the bar */}
-                                {c.aspects.map((a, ai) => (
-                                  <span key={ai} style={{ fontSize: 12, color: PLANET_COLORS[a.transit] || '#C49FFF', opacity: 0.8 }}>
+                                {n.aspects.map((a, ai) => (
+                                  <span key={ai} style={{ fontSize: 11, color: PLANET_COLORS[a.transit] || '#C49FFF', opacity: 0.75 }}>
                                     {PLANET_GLYPHS[a.transit] || a.transit}
                                   </span>
                                 ))}
                               </div>
                             </div>
-                            {/* Count */}
-                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", width: 20, textAlign: "right", flexShrink: 0 }}>
-                              {c.aspects.length}
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", width: 16, textAlign: "right", flexShrink: 0 }}>
+                              {n.count}
                             </div>
                           </div>
                         );
@@ -1811,7 +1832,7 @@ Respond with ONLY valid JSON:
                     <div style={{
                       textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
                       color: "rgba(255,255,255,0.15)", marginTop: 10,
-                    }}>natal points receiving multiple transits · tap for details</div>
+                    }}>transits hitting each natal point · tap for details</div>
                   </div>
                 </>
               );
