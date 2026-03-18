@@ -34,6 +34,8 @@ ${noteInstruction}
 
 ${skyContext}
 
+IMPORTANT: Only reference transits that are explicitly listed in the TRANSIT-TO-NATAL ASPECTS section above. Do NOT invent or guess transits that are not listed. If no transits are listed, write a reading based on the vibe alone.
+
 Respond with ONLY valid JSON, no markdown:
 {
   "headline": "3-6 word lowercase headline",
@@ -67,6 +69,8 @@ Vibes present: ${vibeData.vibesPresent.join(", ")}
 ${noteInstruction}
 
 ${skyContext}
+
+IMPORTANT: Only reference transits explicitly listed in the TRANSIT-TO-NATAL ASPECTS section above. Do NOT invent transits. If no transits are listed, write based on the vibe alone.
 
 Write ONLY the paragraph. 2-3 sentences MAX. Return plain text only, no JSON, no quotes.`;
 }
