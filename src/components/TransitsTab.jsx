@@ -731,10 +731,14 @@ export default function TransitsTab() {
   const [patternLoading, setPatternLoading] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [skyEvents, setSkyEvents] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [eventDetail, setEventDetail] = useState(null);
+  const [eventDetailLoading, setEventDetailLoading] = useState(false);
   const [selectedTransit, setSelectedTransit] = useState(null);
   const [transitDetail, setTransitDetail] = useState(null);
   const [transitDetailLoading, setTransitDetailLoading] = useState(false);
   const patternCache = useRef({});
+  const eventCache = useRef({});
   const transitDetailCache = useRef({});
 
   useEffect(() => {
@@ -1001,6 +1005,129 @@ Respond with ONLY valid JSON:
       setTransitDetail({ error: true });
     }
     setTransitDetailLoading(false);
+  }
+
+  async function openEventDetail(ev) {
+    setSelectedEvent(ev);
+    const cacheKey = `${ev.type}-${ev.date}`;
+    if (eventCache.current[cacheKey]) {
+      setEventDetail(eventCache.current[cacheKey]);
+      return;
+    }
+    setEventDetail(null);
+    setEventDetailLoading(true);
+    try {
+      const skyCtx = getSkyContext(natalChart, transitChart);
+      const houseStr = ev.house ? ` in your ${ev.house}th house` : '';
+      const prompt = `You are a warm, direct astrologer giving a personal interpretation.
+
+Event: ${ev.name || ev.type} on ${ev.date}
+Position: ${ev.sign} ${ev.degree}°${ev.minute}'${houseStr}
+${ev.planet ? `Planet: ${ev.planet}` : ''}
+${ev.daysUntil != null ? `Days until: ${ev.daysUntil}` : ''}
+
+${skyCtx}
+
+Give a personal interpretation of how this event activates this person's chart specifically. Reference the house and any natal planets near this degree.
+
+Respond with ONLY valid JSON:
+{
+  "headline": "3-6 word headline",
+  "interpretation": "2-3 sentences. What this means for them personally based on the house and natal placements it activates.",
+  "howToWork": "1-2 sentences. Practical suggestion for working with this energy."
+}`;
+      const res = await claudeFetch({
+        model: "claude-haiku-4-5-20251001",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 400,
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || "{}";
+      const json = JSON.parse(text.replace(/```json|```/g, "").trim());
+      eventCache.current[cacheKey] = json;
+      setEventDetail(json);
+    } catch (e) {
+      console.error('[event detail]', e);
+      setEventDetail({ error: true });
+    }
+    setEventDetailLoading(false);
+  }
+
+  // Event detail overlay
+  if (selectedEvent) {
+    const ev = selectedEvent;
+    const isRetro = ev.type === 'retrograde-station';
+    const color = isRetro ? '#A8C8FF' : ev.type === 'new-moon' || ev.type === 'first-quarter' ? '#E0E0FF' : '#FFD47F';
+    const icon = isRetro ? '℞' : ev.type === 'new-moon' ? '🌑' : ev.type === 'full-moon' ? '🌕' : ev.type === 'first-quarter' ? '🌓' : '🌗';
+    const title = ev.name || (isRetro ? `${ev.planet} stations direct` : ev.type);
+    const dateLabel = new Date(ev.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    return (
+      <div style={{
+        minHeight: "100vh",
+        background: "radial-gradient(ellipse at 40% 25%, rgba(160,138,255,0.1) 0%, transparent 55%), #050510",
+        fontFamily: "'Cormorant Garamond', serif",
+        color: "white",
+        padding: "36px 20px 100px",
+      }}>
+        <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          <button onClick={() => { setSelectedEvent(null); setEventDetail(null); }}
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            ← back to sky
+          </button>
+
+          <div style={{ textAlign: "center", marginBottom: 30 }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>{icon}</div>
+            <h2 style={{ fontWeight: 300, fontSize: 24, margin: 0, letterSpacing: "0.04em", lineHeight: 1.4, color }}>
+              {title}
+            </h2>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 10, letterSpacing: "0.06em" }}>
+              {dateLabel} · {ev.sign} {ev.degree}°{ev.minute}'{ev.house ? ` · ${ev.house}th house` : ''}
+            </div>
+          </div>
+
+          {eventDetailLoading ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
+              <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading this event...</div>
+            </div>
+          ) : eventDetail?.error ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+              couldn't load interpretation — try again later
+            </div>
+          ) : eventDetail ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{
+                background: `${color}08`, border: `1px solid ${color}15`, borderRadius: 14,
+                padding: "16px 20px", animation: "fadeUp 0.4s ease both",
+              }}>
+                <div style={{ fontSize: 18, color, letterSpacing: "0.04em", marginBottom: 10, fontWeight: 300 }}>
+                  {eventDetail.headline}
+                </div>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.8, letterSpacing: "0.02em" }}>
+                  {eventDetail.interpretation}
+                </div>
+              </div>
+              <div style={{
+                background: `${color}06`, border: `1px solid ${color}10`, borderRadius: 14,
+                padding: "16px 20px", animation: "fadeUp 0.4s 0.1s ease both",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <span style={{ fontSize: 16, color, opacity: 0.6 }}>⟡</span>
+                  <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color, opacity: 0.6 }}>how to work with it</span>
+                </div>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.8 }}>
+                  {eventDetail.howToWork}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <style>{`
+          @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.8} }
+        `}</style>
+      </div>
+    );
   }
 
   // Timeline full view
@@ -1337,25 +1464,26 @@ Respond with ONLY valid JSON:
                 </div>
                 {skyEvents.map((ev, i) => {
                   const isRetro = ev.type === 'retrograde-station';
-                  const isNewMoon = ev.type === 'new-moon';
-                  const isFullMoon = ev.type === 'full-moon';
-                  const icon = isRetro ? '℞' : isNewMoon ? '🌑' : '🌕';
-                  const color = isRetro ? '#A8C8FF' : isNewMoon ? '#E0E0FF' : '#FFD47F';
-                  const title = isRetro
-                    ? `${ev.planet} stations direct`
-                    : isNewMoon ? 'new moon' : 'full moon';
+                  const iconMap = { 'retrograde-station': '℞', 'new-moon': '🌑', 'first-quarter': '🌓', 'full-moon': '🌕', 'third-quarter': '🌗' };
+                  const colorMap = { 'retrograde-station': '#A8C8FF', 'new-moon': '#E0E0FF', 'first-quarter': '#E0E0FF', 'full-moon': '#FFD47F', 'third-quarter': '#FFD47F' };
+                  const icon = iconMap[ev.type] || '◎';
+                  const color = colorMap[ev.type] || '#C49FFF';
+                  const title = ev.name || (isRetro ? `${ev.planet} stations direct` : ev.type);
+                  const daysLabel = ev.daysUntil === 0 ? 'today' : ev.daysUntil === 1 ? 'tomorrow' : `in ${ev.daysUntil} days`;
                   const subtitle = isRetro
-                    ? `goes direct in ${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${ev.daysUntil === 0 ? 'today' : ev.daysUntil === 1 ? 'tomorrow' : `in ${ev.daysUntil} days`}`
-                    : `${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${ev.daysUntil === 0 ? 'today' : ev.daysUntil === 1 ? 'tomorrow' : `in ${ev.daysUntil} days`}`;
+                    ? `goes direct in ${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${daysLabel}`
+                    : `${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${daysLabel}`;
                   const dateLabel = new Date(ev.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
                   return (
-                    <div key={i} style={{
+                    <div key={i} onClick={() => openEventDetail({ ...ev, name: title })} style={{
                       background: `${color}0a`,
                       border: `1px solid ${color}20`,
                       borderRadius: 16,
                       padding: "16px 20px",
                       animation: `fadeUp 0.5s ${i * 0.08}s ease both`,
+                      cursor: "pointer",
+                      transition: "border-color 0.2s",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ fontSize: 22, width: 32, textAlign: "center", flexShrink: 0 }}>{icon}</div>

@@ -212,42 +212,56 @@ function computeSkyEvents(swe, nowJd, cusps) {
     }
   }
 
-  // 2. Next new moon (Sun-Moon conjunction)
-  const findMoonPhase = (targetOrb, label) => {
-    for (let jd = nowJd; jd < nowJd + 45; jd += 0.25) { // scan ~45 days, 6-hour steps
-      const sun = swe.calc_ut(jd, 0, FLAGS)[0]
-      const moon = swe.calc_ut(jd, 1, FLAGS)[0]
-      let diff = (moon - sun + 360) % 360
-      const orb = Math.abs(diff - targetOrb)
-      if (orb < 3) {
-        // Refine to hour
-        let bestOrb = orb, bestJd = jd, bestSun = sun, bestMoon = moon
-        for (let h = jd - 0.5; h <= jd + 0.5; h += HOUR_JD) {
-          const s = swe.calc_ut(h, 0, FLAGS)[0]
-          const m = swe.calc_ut(h, 1, FLAGS)[0]
-          const o = Math.abs(((m - s + 360) % 360) - targetOrb)
-          if (o < bestOrb) { bestOrb = o; bestJd = h; bestSun = s; bestMoon = m }
-        }
-        const moonPos = lngToSign(bestMoon)
-        return {
-          type: label,
-          date: jdToDateStr(bestJd),
-          time: jdToIso(bestJd),
-          sign: moonPos.sign,
-          degree: moonPos.degree,
-          minute: moonPos.minute,
-          house: cusps ? lngToHouse(bestMoon, cusps) : null,
-          daysUntil: Math.round(bestJd - nowJd),
-        }
-      }
-    }
-    return null
-  }
+  // 2. Moon phases — only show the NEXT upcoming phase
+  // Phases at these Sun-Moon elongations: new=0, 1st quarter=90, full=180, 3rd quarter=270
+  const PHASES = [
+    { deg: 0, label: 'new-moon', name: 'new moon', icon: '🌑' },
+    { deg: 90, label: 'first-quarter', name: 'first quarter moon', icon: '🌓' },
+    { deg: 180, label: 'full-moon', name: 'full moon', icon: '🌕' },
+    { deg: 270, label: 'third-quarter', name: 'third quarter moon', icon: '🌗' },
+  ]
 
-  const newMoon = findMoonPhase(0, 'new-moon')
-  const fullMoon = findMoonPhase(180, 'full-moon')
-  if (newMoon) events.push(newMoon)
-  if (fullMoon) events.push(fullMoon)
+  // Determine current phase by Sun-Moon elongation
+  const currentSun = swe.calc_ut(nowJd, 0, FLAGS)[0]
+  const currentMoon = swe.calc_ut(nowJd, 1, FLAGS)[0]
+  const currentElong = ((currentMoon - currentSun) % 360 + 360) % 360
+
+  // Find which phase comes next
+  const nextPhaseIdx = PHASES.findIndex(p => p.deg > currentElong) !== -1
+    ? PHASES.findIndex(p => p.deg > currentElong)
+    : 0 // wrap to new moon
+
+  // Scan for the next phase
+  const nextPhase = PHASES[nextPhaseIdx]
+  for (let jd = nowJd; jd < nowJd + 35; jd += 0.25) {
+    const sun = swe.calc_ut(jd, 0, FLAGS)[0]
+    const moon = swe.calc_ut(jd, 1, FLAGS)[0]
+    const elong = ((moon - sun) % 360 + 360) % 360
+    const orb = Math.abs(elong - nextPhase.deg)
+    if (orb < 3) {
+      // Refine to hour
+      let bestOrb = orb, bestJd = jd, bestMoon = moon
+      for (let h = jd - 0.5; h <= jd + 0.5; h += HOUR_JD) {
+        const s = swe.calc_ut(h, 0, FLAGS)[0]
+        const m = swe.calc_ut(h, 1, FLAGS)[0]
+        const o = Math.abs(((m - s) % 360 + 360) % 360 - nextPhase.deg)
+        if (o < bestOrb) { bestOrb = o; bestJd = h; bestMoon = m }
+      }
+      const moonPos = lngToSign(bestMoon)
+      events.push({
+        type: nextPhase.label,
+        name: nextPhase.name,
+        date: jdToDateStr(bestJd),
+        time: jdToIso(bestJd),
+        sign: moonPos.sign,
+        degree: moonPos.degree,
+        minute: moonPos.minute,
+        house: cusps ? lngToHouse(bestMoon, cusps) : null,
+        daysUntil: Math.round(bestJd - nowJd),
+      })
+      break
+    }
+  }
 
   // Sort: soonest first
   events.sort((a, b) => (a.daysUntil ?? 999) - (b.daysUntil ?? 999))
