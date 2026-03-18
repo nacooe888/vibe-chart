@@ -149,55 +149,14 @@ export function buildSkyContext(natal, transits) {
   return ctx;
 }
 
-export const HARDCODED_SKY_CONTEXT = `Current sky (sidereal Fagan-Allen · San Francisco · Feb 25 2026 · 7:36 AM):
-- Sun 11°56' Aquarius · Mercury 27°25' Aquarius · Venus 23°55' Aquarius · Mars 0°59' Aquarius — four planets in Aquarius
-- Saturn 6°13' Pisces · Neptune 5°49' Pisces — both in Pisces
-- Moon 26°52' Taurus · Jupiter 20°16' Gemini · Uranus 2°33' Taurus · Pluto 9°20' Capricorn · Chiron 28°47' Pisces
-
-Nicole's natal chart (sidereal Fagan-Allen · Oct 28 1988 · 11:35pm EDT · Newark DE · Campanus):
-- Natal Moon: Gemini 3°16' · 12th house
-- Natal Sun: Libra 11°21' · 4th house
-- Natal Mercury: Virgo 23°15' · 4th house
-- Natal Venus: Virgo 4°25' · 3rd house
-- Natal Mars: Pisces 5°17' · 9th house
-- Natal Jupiter: Taurus 9°36' · 11th house
-- Natal Saturn: Sagittarius 4°05' · 6th house
-- Natal Uranus: Sagittarius 3°39' · 6th house
-- Natal Neptune: Sagittarius 13°16' · 6th house
-- Natal Pluto: Libra 17°39' · 4th house
-- ASC: Cancer 6°30' · MC: Pisces 22°34'
-
-REAL TRANSIT-TO-NATAL ASPECTS (calculated to the minute, Feb 25 2026):
-1. Transit Pluto TRINE Natal Jupiter — 0.28° orb — near exact
-2. Transit Saturn TRINE Natal ASC — 0.29° orb — near exact
-3. Transit Neptune CONJUNCT Natal Mars — 0.52° orb — exact, major
-4. Transit Sun TRINE Natal Sun — 0.58° orb — exact this week
-5. Transit Neptune TRINE Natal ASC — 0.69° orb — exact
-6. Transit Saturn CONJUNCT Natal Mars — 0.92° orb — exact, major
-7. Transit Sun SEXTILE Natal Neptune — 1.34° orb — active
-8. Transit Neptune OPPOSITE Natal Venus — 1.39° orb — active
-9. Transit Neptune SQUARE Natal Saturn — 1.73° orb — active
-10. Transit Saturn OPPOSITE Natal Venus — 1.79° orb — active
-11. Transit Uranus TRINE Natal Venus — 1.87° orb — active
-12. Transit Saturn SQUARE Natal Saturn — 2.13° orb — active (exact was Feb 6)
-13. Transit Neptune SQUARE Natal Uranus — 2.17° orb — active
-14. Transit Jupiter SQUARE Natal MC — 2.30° orb — active
-15. Transit Neptune SQUARE Natal Moon — 2.54° orb — active
-
-KEY INSIGHTS:
-- Both Saturn AND Neptune are conjunct natal Mars simultaneously — once-in-a-lifetime overlap
-- Saturn trine ASC + Neptune trine ASC — both exact — identity and presence being restructured with support
-- Pluto trine natal Jupiter exact — deep transformation of beliefs, expansion, abundance
-- Four Aquarius planets activating natal chart through the 12th house (hidden, dissolving, spiritual)
-- This is an extraordinarily active chart — multiple near-exact aspects across several planets`;
-
-// Build context from uploaded charts, falling back to hardcoded
+// Build context from live charts — no hardcoded fallback
 export function getSkyContext(natalChart, transitChart) {
   if (natalChart || transitChart) {
     const dynamic = buildSkyContext(natalChart, transitChart);
     if (dynamic) return dynamic;
   }
-  return HARDCODED_SKY_CONTEXT;
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return `Today is ${today}. No transit chart data available yet — base the reading on the vibe transmission only.`;
 }
 
 // Get vibe data - use real vibe from context if available, otherwise use defaults
