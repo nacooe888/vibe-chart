@@ -154,7 +154,7 @@ function parseAstroResponse(data, ayanamsa) {
     })
   }
 
-  // Parse ASC (house cusp 1) and MC (house cusp 10)
+  // Parse house cusps — store all 12 sidereal cusps + ASC/MC
   if (Array.isArray(data.houseCusps)) {
     const ascTrop = data.houseCusps[1]
     const mcTrop = data.houseCusps[10]
@@ -163,6 +163,16 @@ function parseAstroResponse(data, ayanamsa) {
     }
     if (mcTrop != null) {
       positions.MC = { ...lngToPosition(tropicalToSidereal(mcTrop, ayanamsa)), tropical: Math.round(mcTrop * 1000) / 1000 }
+    }
+    // Store all 12 Campanus cusps (sidereal) for house placement
+    const cusps = []
+    for (let i = 1; i <= 12; i++) {
+      if (data.houseCusps[i] != null) {
+        cusps.push(Math.round(tropicalToSidereal(data.houseCusps[i], ayanamsa) * 10000) / 10000)
+      }
+    }
+    if (cusps.length === 12) {
+      positions._cusps = cusps // 0-indexed: cusps[0] = 1st house cusp (ASC)
     }
   }
 

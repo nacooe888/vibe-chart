@@ -146,30 +146,29 @@ function lngToSign(lng) {
   return { sign: SIGNS[idx], degree: deg, minute: min }
 }
 
-// Determine house from Campanus cusps array (1-indexed, sidereal)
+// Determine house from Campanus cusps array (0-indexed: cusps[0] = 1st house)
 function lngToHouse(lng, cusps) {
-  if (!cusps || cusps.length < 13) return null
+  if (!cusps || cusps.length < 12) return null
   const normLng = ((lng % 360) + 360) % 360
-  for (let h = 1; h <= 12; h++) {
+  for (let h = 0; h < 12; h++) {
     const cusp = ((cusps[h] % 360) + 360) % 360
-    const nextCusp = ((cusps[h === 12 ? 1 : h + 1] % 360) + 360) % 360
+    const nextCusp = ((cusps[(h + 1) % 12] % 360) + 360) % 360
     if (nextCusp > cusp) {
-      if (normLng >= cusp && normLng < nextCusp) return h
+      if (normLng >= cusp && normLng < nextCusp) return h + 1
     } else {
-      // Wraps around 0°
-      if (normLng >= cusp || normLng < nextCusp) return h
+      if (normLng >= cusp || normLng < nextCusp) return h + 1
     }
   }
-  return 1 // fallback
+  return 1
 }
 
-// Compute Campanus house cusps from birth data
-function computeCusps(swe, birthJd, lat, lng) {
-  const result = swe.houses(birthJd, lat, lng, 'C') // C = Campanus
-  return result.cusps // Float64Array, 1-indexed
-}
-
-function computeSkyEvents(swe, nowJd, cusps) {
+function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
+  // Convert JD to date string in user's local timezone
+  const jdToLocalDateStr = (jd) => {
+    const unixMs = (jd - 2440587.5) * 86400000
+    const local = new Date(unixMs - (tzOffsetMin || 0) * 60000)
+    return local.toISOString().slice(0, 10)
+  }
   const FLAGS = 65536 | 256 // SEFLG_SIDEREAL | SEFLG_SPEED
   const events = []
 
@@ -200,7 +199,7 @@ function computeSkyEvents(swe, nowJd, cusps) {
           type: 'retrograde-station',
           planet: name,
           status: 'retrograde',
-          stationDate: jdToDateStr(stationJd),
+          stationDate: jdToLocalDateStr(stationJd),
           stationTime: jdToIso(stationJd),
           sign: pos.sign,
           degree: pos.degree,
@@ -251,7 +250,7 @@ function computeSkyEvents(swe, nowJd, cusps) {
       events.push({
         type: nextPhase.label,
         name: nextPhase.name,
-        date: jdToDateStr(bestJd),
+        date: jdToLocalDateStr(bestJd),
         time: jdToIso(bestJd),
         sign: moonPos.sign,
         degree: moonPos.degree,
@@ -277,22 +276,20 @@ export default async function handler(req, res) {
 
   // Sky events mode
   if (type === 'skyEvents') {
-    const { birthDate, birthTime, birthLat, birthLng } = req.body || {}
+    const { tzOffsetMin } = req.body || {}
     try {
       const swe = new SwissEph()
       await swe.initSwissEph()
       swe.set_sid_mode(0, 0, 0)
       const nowJd = dateToJd(swe, new Date())
 
-      // Compute Campanus cusps from birth data if available
-      let cusps = null
-      if (birthDate && birthLat != null && birthLng != null) {
-        const bd = new Date(birthTime ? `${birthDate}T${birthTime}:00Z` : `${birthDate}T12:00:00Z`)
-        const birthJd = dateToJd(swe, bd)
-        cusps = computeCusps(swe, birthJd, birthLat, birthLng)
-      }
+      // Use Campanus cusps from AstroApp natal chart if available
+      const cusps = natalPositions?._cusps || null
 
-      const events = computeSkyEvents(swe, nowJd, cusps)
+      // Timezone offset for displaying dates in user's local time
+      const tzOffset = typeof tzOffsetMin === 'number' ? tzOffsetMin : 0
+
+      const events = computeSkyEvents(swe, nowJd, cusps, tzOffset)
       return res.status(200).json({ events })
     } catch (err) {
       console.error('skyEvents error:', err)

@@ -841,45 +841,22 @@ export default function TransitsTab() {
     return () => clearTimeout(t);
   }, []);
 
-  // Fetch sky events (retrogrades, moon phases) with Campanus houses
+  // Fetch sky events (retrogrades, moon phases) with Campanus houses from natal chart
   useEffect(() => {
-    if (!user?.id || !natalChart?.positions) return;
-    (async () => {
-      try {
-        const profile = await loadProfile(user.id);
-        const body = { type: 'skyEvents', natalPositions: natalChart.positions };
-
-        // Pass birth data for Campanus house calculation
-        if (profile?.birth_date) {
-          body.birthDate = profile.birth_date;
-          body.birthTime = profile.birth_time_unknown ? null : (profile.birth_time || null);
-          // Geocode birth location for lat/lng
-          if (profile.birth_location) {
-            try {
-              const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(profile.birth_location)}&format=json&limit=1`, {
-                headers: { 'User-Agent': 'vibe-chart/1.0' },
-              });
-              const geoData = await geoRes.json();
-              if (geoData?.[0]) {
-                body.birthLat = parseFloat(geoData[0].lat);
-                body.birthLng = parseFloat(geoData[0].lon);
-              }
-            } catch (e) { /* geocode failed, houses will be null */ }
-          }
-        }
-
-        const res = await fetch('/api/ephemeris', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (data.events) setSkyEvents(data.events);
-      } catch (err) {
-        console.warn('[skyEvents]', err);
-      }
-    })();
-  }, [user?.id, natalChart?.positions ? 'loaded' : 'none']);
+    if (!natalChart?.positions) return;
+    fetch('/api/ephemeris', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'skyEvents',
+        natalPositions: natalChart.positions,
+        tzOffsetMin: new Date().getTimezoneOffset(),
+      }),
+    })
+      .then(r => r.json())
+      .then(data => { if (data.events) setSkyEvents(data.events); })
+      .catch(err => console.warn('[skyEvents]', err));
+  }, [natalChart?.positions ? 'loaded' : 'none']);
 
   const positions = transitChart?.positions;
   const dateLabel = transitChart?.date || 'today';
