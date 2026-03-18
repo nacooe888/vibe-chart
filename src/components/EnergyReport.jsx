@@ -81,7 +81,8 @@ export function buildSkyContext(natal, transits) {
       if (p[pl]) {
         const s = p[pl].sign;
         if (!grouped[s]) grouped[s] = [];
-        grouped[s].push(`${pl} ${p[pl].degree}°${p[pl].minute ? p[pl].minute+"'" : ''}`);
+        const rx = p[pl].retrograde ? ' Rx' : '';
+        grouped[s].push(`${pl} ${p[pl].degree}°${p[pl].minute ? p[pl].minute+"'" : ''}${rx}`);
       }
     });
     Object.entries(grouped).forEach(([sign, pls]) => {
