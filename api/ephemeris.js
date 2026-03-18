@@ -133,15 +133,137 @@ function findWindow(cache, transitId, natalLng, aspectDeg, maxOrb) {
   return windowStart ? { start: windowStart, end: windowEnd } : null
 }
 
+// ── Sky Events: retrogrades, stations, moon phases ─────────────────────────
+
+const PLANET_NAMES = { 0:'Sun', 1:'Moon', 2:'Mercury', 3:'Venus', 4:'Mars', 5:'Jupiter', 6:'Saturn', 7:'Uranus', 8:'Neptune', 9:'Pluto', 11:'TrueNode', 15:'Chiron' }
+const SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces']
+const RETRO_PLANETS = [2, 3, 4, 5, 6, 7, 8, 9] // Mercury through Pluto (not Sun/Moon)
+
+function lngToSign(lng) {
+  const idx = Math.floor(((lng % 360) + 360) % 360 / 30) % 12
+  const deg = Math.floor(((lng % 360) + 360) % 360 % 30)
+  const min = Math.round((((lng % 360) + 360) % 360 % 1) * 60)
+  return { sign: SIGNS[idx], degree: deg, minute: min }
+}
+
+function lngToHouse(lng, ascLng) {
+  // Whole-sign houses from ASC sign
+  const ascSign = Math.floor(((ascLng % 360) + 360) % 360 / 30)
+  const eventSign = Math.floor(((lng % 360) + 360) % 360 / 30)
+  return ((eventSign - ascSign + 12) % 12) + 1
+}
+
+function computeSkyEvents(swe, nowJd, ascLng) {
+  const FLAGS = 65536 | 256 // SEFLG_SIDEREAL | SEFLG_SPEED
+  const events = []
+
+  // 1. Retrograde planets — find station direct date
+  for (const pid of RETRO_PLANETS) {
+    const result = swe.calc_ut(nowJd, pid, FLAGS)
+    const speed = result[3]
+    const name = PLANET_NAMES[pid]
+
+    if (speed < 0) {
+      // Currently retrograde — scan forward for station direct (speed crosses 0)
+      let stationJd = null
+      let stationLng = null
+      for (let jd = nowJd; jd < nowJd + 365; jd += DAY_JD) {
+        const r = swe.calc_ut(jd, pid, FLAGS)
+        if (r[3] >= 0) {
+          // Refine to hour
+          for (let h = jd - DAY_JD; h <= jd; h += HOUR_JD) {
+            const rh = swe.calc_ut(h, pid, FLAGS)
+            if (rh[3] >= 0) { stationJd = h; stationLng = rh[0]; break }
+          }
+          break
+        }
+      }
+      if (stationJd) {
+        const pos = lngToSign(stationLng)
+        events.push({
+          type: 'retrograde-station',
+          planet: name,
+          status: 'retrograde',
+          stationDate: jdToDateStr(stationJd),
+          stationTime: jdToIso(stationJd),
+          sign: pos.sign,
+          degree: pos.degree,
+          minute: pos.minute,
+          house: ascLng != null ? lngToHouse(stationLng, ascLng) : null,
+          daysUntil: Math.round(stationJd - nowJd),
+        })
+      }
+    }
+  }
+
+  // 2. Next new moon (Sun-Moon conjunction)
+  const findMoonPhase = (targetOrb, label) => {
+    for (let jd = nowJd; jd < nowJd + 45; jd += 0.25) { // scan ~45 days, 6-hour steps
+      const sun = swe.calc_ut(jd, 0, FLAGS)[0]
+      const moon = swe.calc_ut(jd, 1, FLAGS)[0]
+      let diff = (moon - sun + 360) % 360
+      const orb = Math.abs(diff - targetOrb)
+      if (orb < 3) {
+        // Refine to hour
+        let bestOrb = orb, bestJd = jd, bestSun = sun, bestMoon = moon
+        for (let h = jd - 0.5; h <= jd + 0.5; h += HOUR_JD) {
+          const s = swe.calc_ut(h, 0, FLAGS)[0]
+          const m = swe.calc_ut(h, 1, FLAGS)[0]
+          const o = Math.abs(((m - s + 360) % 360) - targetOrb)
+          if (o < bestOrb) { bestOrb = o; bestJd = h; bestSun = s; bestMoon = m }
+        }
+        const moonPos = lngToSign(bestMoon)
+        return {
+          type: label,
+          date: jdToDateStr(bestJd),
+          time: jdToIso(bestJd),
+          sign: moonPos.sign,
+          degree: moonPos.degree,
+          minute: moonPos.minute,
+          house: ascLng != null ? lngToHouse(bestMoon, ascLng) : null,
+          daysUntil: Math.round(bestJd - nowJd),
+        }
+      }
+    }
+    return null
+  }
+
+  const newMoon = findMoonPhase(0, 'new-moon')
+  const fullMoon = findMoonPhase(180, 'full-moon')
+  if (newMoon) events.push(newMoon)
+  if (fullMoon) events.push(fullMoon)
+
+  // Sort: soonest first
+  events.sort((a, b) => (a.daysUntil ?? 999) - (b.daysUntil ?? 999))
+  return events
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { transits, natalPositions, scanYears } = req.body || {}
+  const { type, transits, natalPositions, scanYears } = req.body || {}
 
+  // Sky events mode
+  if (type === 'skyEvents') {
+    try {
+      const swe = new SwissEph()
+      await swe.initSwissEph()
+      swe.set_sid_mode(0, 0, 0)
+      const nowJd = dateToJd(swe, new Date())
+      const ascLng = natalPositions?.ASC?.sidereal ?? null
+      const events = computeSkyEvents(swe, nowJd, ascLng)
+      return res.status(200).json({ events })
+    } catch (err) {
+      console.error('skyEvents error:', err)
+      return res.status(500).json({ error: err.message })
+    }
+  }
+
+  // Transit aspects mode (existing)
   if (!transits || !Array.isArray(transits) || !natalPositions) {
-    return res.status(400).json({ error: 'transits (array) and natalPositions required' })
+    return res.status(400).json({ error: 'transits (array) and natalPositions required, or type: "skyEvents"' })
   }
 
   try {

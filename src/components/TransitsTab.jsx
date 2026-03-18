@@ -730,6 +730,7 @@ export default function TransitsTab() {
   const [patternDetail, setPatternDetail] = useState(null);
   const [patternLoading, setPatternLoading] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [skyEvents, setSkyEvents] = useState(null);
   const [selectedTransit, setSelectedTransit] = useState(null);
   const [transitDetail, setTransitDetail] = useState(null);
   const [transitDetailLoading, setTransitDetailLoading] = useState(false);
@@ -835,6 +836,19 @@ export default function TransitsTab() {
     const t = setTimeout(() => setLoading(false), 30000);
     return () => clearTimeout(t);
   }, []);
+
+  // Fetch sky events (retrogrades, moon phases)
+  useEffect(() => {
+    if (!natalChart?.positions) return;
+    fetch('/api/ephemeris', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'skyEvents', natalPositions: natalChart.positions }),
+    })
+      .then(r => r.json())
+      .then(data => { if (data.events) setSkyEvents(data.events); })
+      .catch(err => console.warn('[skyEvents]', err));
+  }, [natalChart?.positions ? 'loaded' : 'none']);
 
   const positions = transitChart?.positions;
   const dateLabel = transitChart?.date || 'today';
@@ -1285,6 +1299,56 @@ Respond with ONLY valid JSON:
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Sky Events */}
+            {skyEvents && skyEvents.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
+                }}>
+                  sky events
+                </div>
+                {skyEvents.map((ev, i) => {
+                  const isRetro = ev.type === 'retrograde-station';
+                  const isNewMoon = ev.type === 'new-moon';
+                  const isFullMoon = ev.type === 'full-moon';
+                  const icon = isRetro ? '℞' : isNewMoon ? '🌑' : '🌕';
+                  const color = isRetro ? '#A8C8FF' : isNewMoon ? '#E0E0FF' : '#FFD47F';
+                  const title = isRetro
+                    ? `${ev.planet} stations direct`
+                    : isNewMoon ? 'new moon' : 'full moon';
+                  const subtitle = isRetro
+                    ? `goes direct in ${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${ev.daysUntil === 0 ? 'today' : ev.daysUntil === 1 ? 'tomorrow' : `in ${ev.daysUntil} days`}`
+                    : `${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${ev.daysUntil === 0 ? 'today' : ev.daysUntil === 1 ? 'tomorrow' : `in ${ev.daysUntil} days`}`;
+                  const dateLabel = new Date(ev.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                  return (
+                    <div key={i} style={{
+                      background: `${color}0a`,
+                      border: `1px solid ${color}20`,
+                      borderRadius: 16,
+                      padding: "16px 20px",
+                      animation: `fadeUp 0.5s ${i * 0.08}s ease both`,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ fontSize: 22, width: 32, textAlign: "center", flexShrink: 0 }}>{icon}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                            <div style={{ fontSize: 15, color, letterSpacing: "0.04em" }}>{title}</div>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>{dateLabel}</div>
+                          </div>
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 4, letterSpacing: "0.04em", lineHeight: 1.5 }}>
+                            {subtitle}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.06)", margin: "10px auto 6px" }}/>
+              </>
+            )}
+
             {/* Patterns section */}
             {patterns.length > 0 && (
               <>
