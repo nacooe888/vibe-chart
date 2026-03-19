@@ -1845,14 +1845,6 @@ Respond with ONLY valid JSON:
             )}
 
             {/* (natal activation chart is above, after pie chart) */}
-                <div style={{
-                  width: 36,
-                  height: 1,
-                  background: "rgba(255,255,255,0.06)",
-                  margin: "10px auto 6px",
-                }}/>
-              </>
-            )}
 
             {/* Transit Timeline Preview */}
             {transitWindows.length > 0 && (
