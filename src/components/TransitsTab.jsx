@@ -1925,14 +1925,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                       {natalActivation.map((n, ni) => {
                         const barH = Math.max((n.count / maxCount) * barMaxH, 8);
                         return (
-                          <div key={ni} onClick={() => openPatternDetail({
-                            type: 'convergence',
-                            planet: n.planet,
-                            color: n.color,
-                            title: `${n.count} transits hitting natal ${n.planet}`,
-                            subtitle: n.aspects.map(a => `${a.transit} ${a.aspect.name} (${a.orb.toFixed(1)}°)`).join(' · '),
-                            aspects: n.aspects,
-                          })}
+                          <div key={ni} onClick={() => openActivationDetail(n)}
                             style={{
                               display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
                               cursor: "pointer", animation: `fadeUp 0.3s ${ni * 0.04}s ease both`,
