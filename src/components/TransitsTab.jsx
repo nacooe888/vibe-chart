@@ -1221,11 +1221,24 @@ Respond with ONLY valid JSON:
   // Event detail overlay
   if (selectedEvent) {
     const ev = selectedEvent;
+    const planetGlyphsD = { Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂', Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇', Chiron:'⚷' };
+    const aspectGlyphsD = { conjunction:'☌', sextile:'⚹', square:'□', trine:'△', opposition:'☍' };
+    const planetColorsD = { Mercury:'#A8C8FF', Venus:'#FFB8D4', Mars:'#FF9A8A', Jupiter:'#FFD47F', Saturn:'#B8C8E0', Uranus:'#7FE8D4', Neptune:'#B4A8FF', Pluto:'#D4A8C8', Chiron:'#C8B89A' };
+    const isMundane = ev.type === 'mundane-aspect';
     const isRetro = ev.type === 'retrograde-station';
-    const color = isRetro ? '#A8C8FF' : ev.type === 'new-moon' || ev.type === 'first-quarter' ? '#E0E0FF' : '#FFD47F';
-    const icon = isRetro ? '℞' : ev.type === 'new-moon' ? '🌑' : ev.type === 'full-moon' ? '🌕' : ev.type === 'first-quarter' ? '🌓' : '🌗';
+    const isDirect = ev.type === 'station-direct';
+    const isStationRetro = ev.type === 'station-retrograde';
+    const isIngress = ev.type === 'sign-ingress';
+    const color = isMundane ? (planetColorsD[ev.planetA] || '#C49FFF')
+      : (isRetro || isDirect || isStationRetro) ? (planetColorsD[ev.planet] || '#A8C8FF')
+      : ev.type === 'new-moon' || ev.type === 'first-quarter' ? '#E0E0FF' : '#FFD47F';
+    const icon = isMundane ? (aspectGlyphsD[ev.aspect] || '◎')
+      : isDirect ? (planetGlyphsD[ev.planet] || '↑')
+      : isRetro || isStationRetro ? '℞'
+      : ev.type === 'new-moon' ? '🌑' : ev.type === 'full-moon' ? '🌕' : ev.type === 'first-quarter' ? '🌓' : '🌗';
     const title = ev.name || (isRetro ? `${ev.planet} stations direct` : ev.type);
-    const dateLabel = new Date(ev.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const evDate = ev.date || ev.stationDate || ev.exactDate || '';
+    const dateLabel = evDate ? new Date(evDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
 
     return (
       <div style={{
@@ -1247,7 +1260,9 @@ Respond with ONLY valid JSON:
               {title}
             </h2>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 10, letterSpacing: "0.06em" }}>
-              {dateLabel} · {ev.sign} {ev.degree}°{ev.minute}'{ev.house ? ` · ${ev.house}th house` : ''}
+              {dateLabel}{isMundane
+                ? ` · ${ev.signA} ${ev.degreeA}°${ev.minuteA}' ${ev.aspect} ${ev.signB} ${ev.degreeB}°${ev.minuteB}'${ev.houseA || ev.houseB ? ` · ${[ev.houseA, ev.houseB].filter(Boolean).join('–')} house` : ''}`
+                : ` · ${ev.sign} ${ev.degree}°${ev.minute}'${ev.house ? ` · ${ev.house}th house` : ''}`}
             </div>
           </div>
 
