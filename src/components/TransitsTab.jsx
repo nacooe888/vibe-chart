@@ -1010,11 +1010,13 @@ ${skyCtx}
 
 Respond with ONLY valid JSON:
 {
-  "duration": "How long this transit is active — when it entered orb and when it fades. 1-2 sentences.",
+  "duration": "How long this transit is active — when it entered orb and when it fades. 1-2 sentences. Do NOT guess exact dates — estimate based on planet speed only.",
   "rarity": "How rare this specific aspect is. Be honest. 1-2 sentences.",
   "interpretation": "What this transit means experientially. Warm, direct, no filler. 2-3 sentences.",
   "howToWork": "Practical suggestions for working with this energy. 2-3 sentences."
-}`;
+}
+
+IMPORTANT: ONLY reference transits, aspects, and natal placements that are explicitly listed in the chart context above. Do not invent or reference other transits or placements.`;
       const res = await claudeFetch({
         model: "claude-haiku-4-5-20251001",
         messages: [{ role: "user", content: prompt }],

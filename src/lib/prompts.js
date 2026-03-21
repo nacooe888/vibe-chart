@@ -128,7 +128,7 @@ The transit to explore: ${transit.name}
 
 ${skyContext}
 ${ephSection}
-${ephemerisData ? 'IMPORTANT: Use the exact hit dates from the EPHEMERIS DATA above. Do NOT invent or guess different dates. These are computed from real planetary positions.' : `IMPORTANT: The transit positions above are for TODAY (${today}). If the orb is very tight (under 1°), the exact date is likely today or within days of today — do NOT guess a date weeks or months away.`}
+${ephemerisData ? 'IMPORTANT: Use the exact hit dates from the EPHEMERIS DATA above. Do NOT invent or guess different dates. These are computed from real planetary positions.' : `IMPORTANT: Ephemeris data was unavailable for this transit. Do NOT estimate or guess exact dates, arc passes, or active windows. For the "movement" and "arc" fields, use only the orb from the transit data above. Say "timing data unavailable" for any date fields.`}
 
 For history: Return the most recent past occurrence and next future occurrence. For outer planets (Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron), use year only (e.g. "2019"). For personal planets (Sun, Mercury, Venus, Mars) and Moon, use month and year (e.g. "March 2025"). Include pre-birth dates if it never happened in their lifetime. pastOccurrences should have the most recent one first, max 3.
 
@@ -191,7 +191,7 @@ Generate four ritual paths specifically for working with ${transit.name}. Respon
   }
 }
 
-Make each practice SPECIFIC to ${transit.name} — not generic vibe work. Reference what this specific planetary energy is doing.`;
+Make each practice SPECIFIC to ${transit.name} — not generic vibe work. Reference what this specific planetary energy is doing. ONLY reference transits and placements that are explicitly listed in the chart context above — do not invent or reference other transits.`;
 }
 
 // ── Chat System Prompt ────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ export function chatSystemPrompt(skyContext) {
 
 ${skyContext}
 
-Answer their questions honestly, specifically, and warmly. Reference actual placements and transits from the chart above when relevant — don't be generic. Keep responses conversational: 2-4 sentences unless a detailed answer genuinely needs more. If you don't know something from the chart data, say so rather than inventing it. No toxic positivity. No filler.`;
+Answer their questions honestly, specifically, and warmly. Reference actual placements and transits from the chart above when relevant — don't be generic. Keep responses conversational: 2-4 sentences unless a detailed answer genuinely needs more. IMPORTANT: ONLY reference transits, aspects, and natal placements that are explicitly listed in the chart data above. If something isn't in the data, say you don't have that information — do NOT invent transits, aspects, or placements. No toxic positivity. No filler.`;
 }
 
 // ── Vibe Ritual Options (3 paths by default, 4 for volatile vibes) ──────────
@@ -236,7 +236,7 @@ Generate four ritual paths. Respond with ONLY valid JSON:
   }
 }
 
-Include ALL four paths (honor, release, shift, channel). Each step specific, somatic, doable right now. Informed by the active transits. Not vague. Not toxic positivity.`;
+Include ALL four paths (honor, release, shift, channel). Each step specific, somatic, doable right now. Informed by the active transits. Not vague. Not toxic positivity. ONLY reference transits and placements that are explicitly listed in the chart context above — do not invent or reference other transits.`;
 }
 
 // ── Pattern Detail (mass activation, reciprocal, convergence) ───────────────
@@ -260,7 +260,9 @@ Respond with ONLY valid JSON, no markdown:
   "rarity": "How rare or common this specific pattern configuration is. Be honest — some patterns happen regularly, others are once-in-a-decade. 1-2 sentences.",
   "interpretation": "What this pattern means experientially — what does it feel like, what is it doing. Warm, direct, no filler. 2-3 sentences max.",
   "howToWork": "Practical suggestions for working with this pattern. Specific, embodied, doable. 2-3 sentences max."
-}`;
+}
+
+IMPORTANT: ONLY reference the specific transits and natal placements listed in the chart context above. Do not invent or reference other aspects, transits, or configurations that are not explicitly listed.`;
 }
 
 const PATTERN_LABELS = {
