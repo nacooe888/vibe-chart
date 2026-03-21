@@ -172,20 +172,21 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
   const FLAGS = 65536 | 256 // SEFLG_SIDEREAL | SEFLG_SPEED
   const events = []
 
-  // 1. Retrograde planets — find station direct date
+  const INNER_PLANETS = new Set([2, 3, 4]) // Mercury, Venus, Mars
+  const isInner = (pid) => INNER_PLANETS.has(pid)
+
+  // 1a. Currently retrograde planets — find station direct date (forward scan)
   for (const pid of RETRO_PLANETS) {
     const result = swe.calc_ut(nowJd, pid, FLAGS)
     const speed = result[3]
     const name = PLANET_NAMES[pid]
 
     if (speed < 0) {
-      // Currently retrograde — scan forward for station direct (speed crosses 0)
       let stationJd = null
       let stationLng = null
       for (let jd = nowJd; jd < nowJd + 365; jd += DAY_JD) {
         const r = swe.calc_ut(jd, pid, FLAGS)
         if (r[3] >= 0) {
-          // Refine to hour
           for (let h = jd - DAY_JD; h <= jd; h += HOUR_JD) {
             const rh = swe.calc_ut(h, pid, FLAGS)
             if (rh[3] >= 0) { stationJd = h; stationLng = rh[0]; break }
@@ -211,8 +212,87 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
     }
   }
 
+  // 1b. Recent station directs — planet just went direct (backward scan)
+  for (const pid of RETRO_PLANETS) {
+    const result = swe.calc_ut(nowJd, pid, FLAGS)
+    const speed = result[3]
+    const name = PLANET_NAMES[pid]
+    const lingerDays = isInner(pid) ? 5 : 10
+
+    if (speed >= 0) {
+      // Scan backward up to 10 days to find when speed crossed from negative to positive
+      let stationJd = null
+      let stationLng = null
+      for (let jd = nowJd; jd > nowJd - 10; jd -= DAY_JD) {
+        const r = swe.calc_ut(jd, pid, FLAGS)
+        if (r[3] < 0) {
+          // Found retrograde — station direct is between jd and jd+1
+          for (let h = jd; h <= jd + DAY_JD; h += HOUR_JD) {
+            const rh = swe.calc_ut(h, pid, FLAGS)
+            if (rh[3] >= 0) { stationJd = h; stationLng = rh[0]; break }
+          }
+          break
+        }
+      }
+      if (stationJd) {
+        const daysAgo = Math.round(nowJd - stationJd)
+        if (daysAgo <= lingerDays) {
+          const pos = lngToSign(stationLng)
+          events.push({
+            type: 'station-direct',
+            planet: name,
+            stationDate: jdToLocalDateStr(stationJd),
+            stationTime: jdToIso(stationJd),
+            sign: pos.sign,
+            degree: pos.degree,
+            minute: pos.minute,
+            house: cusps ? lngToHouse(stationLng, cusps) : null,
+            daysUntil: -daysAgo,
+            lingerDays,
+          })
+        }
+      }
+    }
+  }
+
+  // 1c. Upcoming station retrogrades — planet about to go retrograde (forward scan)
+  for (const pid of RETRO_PLANETS) {
+    const result = swe.calc_ut(nowJd, pid, FLAGS)
+    const speed = result[3]
+    const name = PLANET_NAMES[pid]
+
+    if (speed > 0) {
+      let stationJd = null
+      let stationLng = null
+      for (let jd = nowJd; jd < nowJd + 30; jd += DAY_JD) {
+        const r = swe.calc_ut(jd, pid, FLAGS)
+        if (r[3] < 0) {
+          // Refine to hour
+          for (let h = jd - DAY_JD; h <= jd; h += HOUR_JD) {
+            const rh = swe.calc_ut(h, pid, FLAGS)
+            if (rh[3] < 0) { stationJd = h; stationLng = rh[0]; break }
+          }
+          break
+        }
+      }
+      if (stationJd) {
+        const pos = lngToSign(stationLng)
+        events.push({
+          type: 'station-retrograde',
+          planet: name,
+          stationDate: jdToLocalDateStr(stationJd),
+          stationTime: jdToIso(stationJd),
+          sign: pos.sign,
+          degree: pos.degree,
+          minute: pos.minute,
+          house: cusps ? lngToHouse(stationLng, cusps) : null,
+          daysUntil: Math.round(stationJd - nowJd),
+        })
+      }
+    }
+  }
+
   // 2. Moon phases — only show the NEXT upcoming phase
-  // Phases at these Sun-Moon elongations: new=0, 1st quarter=90, full=180, 3rd quarter=270
   const PHASES = [
     { deg: 0, label: 'new-moon', name: 'new moon', icon: '🌑' },
     { deg: 90, label: 'first-quarter', name: 'first quarter moon', icon: '🌓' },
@@ -220,17 +300,14 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
     { deg: 270, label: 'third-quarter', name: 'third quarter moon', icon: '🌗' },
   ]
 
-  // Determine current phase by Sun-Moon elongation
   const currentSun = swe.calc_ut(nowJd, 0, FLAGS)[0]
   const currentMoon = swe.calc_ut(nowJd, 1, FLAGS)[0]
   const currentElong = ((currentMoon - currentSun) % 360 + 360) % 360
 
-  // Find which phase comes next
   const nextPhaseIdx = PHASES.findIndex(p => p.deg > currentElong) !== -1
     ? PHASES.findIndex(p => p.deg > currentElong)
-    : 0 // wrap to new moon
+    : 0
 
-  // Scan for the next phase
   const nextPhase = PHASES[nextPhaseIdx]
   for (let jd = nowJd; jd < nowJd + 35; jd += 0.25) {
     const sun = swe.calc_ut(jd, 0, FLAGS)[0]
@@ -238,7 +315,6 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
     const elong = ((moon - sun) % 360 + 360) % 360
     const orb = Math.abs(elong - nextPhase.deg)
     if (orb < 3) {
-      // Refine to hour
       let bestOrb = orb, bestJd = jd, bestMoon = moon
       for (let h = jd - 0.5; h <= jd + 0.5; h += HOUR_JD) {
         const s = swe.calc_ut(h, 0, FLAGS)[0]
@@ -262,8 +338,135 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
     }
   }
 
-  // Sort: soonest first
-  events.sort((a, b) => (a.daysUntil ?? 999) - (b.daysUntil ?? 999))
+  // 3. Recent sign ingresses — planet just entered a new sign
+  const INGRESS_PLANETS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] // Sun through Pluto
+  for (const pid of INGRESS_PLANETS) {
+    const name = PLANET_NAMES[pid]
+    const lingerDays = (pid <= 4) ? 3 : 7 // inner planets 3 days, outer 7 days
+    const lookback = lingerDays
+
+    const nowLng = swe.calc_ut(nowJd, pid, FLAGS)[0]
+    const nowSign = lngToSign(nowLng).sign
+    const pastLng = swe.calc_ut(nowJd - lookback, pid, FLAGS)[0]
+    const pastSign = lngToSign(pastLng).sign
+
+    if (nowSign !== pastSign) {
+      // Sign changed — scan to find the exact ingress date
+      let ingressJd = null
+      let ingressLng = null
+      for (let jd = nowJd - lookback; jd <= nowJd; jd += HOUR_JD * 6) {
+        const lng = swe.calc_ut(jd, pid, FLAGS)[0]
+        const sign = lngToSign(lng).sign
+        if (sign === nowSign) {
+          // Refine to hour
+          for (let h = jd - HOUR_JD * 6; h <= jd; h += HOUR_JD) {
+            const hl = swe.calc_ut(h, pid, FLAGS)[0]
+            if (lngToSign(hl).sign === nowSign) { ingressJd = h; ingressLng = hl; break }
+          }
+          break
+        }
+      }
+      if (ingressJd) {
+        const daysAgo = Math.round(nowJd - ingressJd)
+        const pos = lngToSign(ingressLng)
+        events.push({
+          type: 'sign-ingress',
+          planet: name,
+          sign: pos.sign,
+          degree: pos.degree,
+          minute: pos.minute,
+          date: jdToLocalDateStr(ingressJd),
+          house: cusps ? lngToHouse(ingressLng, cusps) : null,
+          daysUntil: -daysAgo,
+          lingerDays,
+        })
+      }
+    }
+  }
+
+  // 4. Mundane transit-to-transit aspects (slow planet pairs)
+  const ASPECT_DEFS = [
+    { name: 'conjunction', deg: 0, orb: 3 },
+    { name: 'sextile', deg: 60, orb: 3 },
+    { name: 'square', deg: 90, orb: 3 },
+    { name: 'trine', deg: 120, orb: 3 },
+    { name: 'opposition', deg: 180, orb: 3 },
+  ]
+  // Only outer planet pairs (Jupiter through Pluto) for meaningful slow aspects
+  const MUNDANE_PLANETS = [5, 6, 7, 8, 9] // Jupiter, Saturn, Uranus, Neptune, Pluto
+  for (let i = 0; i < MUNDANE_PLANETS.length; i++) {
+    for (let j = i + 1; j < MUNDANE_PLANETS.length; j++) {
+      const pidA = MUNDANE_PLANETS[i]
+      const pidB = MUNDANE_PLANETS[j]
+      const nameA = PLANET_NAMES[pidA]
+      const nameB = PLANET_NAMES[pidB]
+      const lngA = swe.calc_ut(nowJd, pidA, FLAGS)[0]
+      const lngB = swe.calc_ut(nowJd, pidB, FLAGS)[0]
+
+      for (const asp of ASPECT_DEFS) {
+        const orb = aspectOrb(lngA, lngB, asp.deg)
+        if (orb <= asp.orb) {
+          // Currently in aspect — find if it's applying or separating, and when exact
+          const posA = lngToSign(lngA)
+          const posB = lngToSign(lngB)
+
+          // Scan nearby to find exact date (within 60 days back/forward)
+          let bestOrb = orb, bestJd = nowJd
+          for (let jd = nowJd - 60; jd <= nowJd + 60; jd += DAY_JD) {
+            const a = swe.calc_ut(jd, pidA, FLAGS)[0]
+            const b = swe.calc_ut(jd, pidB, FLAGS)[0]
+            const o = aspectOrb(a, b, asp.deg)
+            if (o < bestOrb) { bestOrb = o; bestJd = jd }
+          }
+          // Refine to hour
+          for (let h = bestJd - DAY_JD; h <= bestJd + DAY_JD; h += HOUR_JD) {
+            const a = swe.calc_ut(h, pidA, FLAGS)[0]
+            const b = swe.calc_ut(h, pidB, FLAGS)[0]
+            const o = aspectOrb(a, b, asp.deg)
+            if (o < bestOrb) { bestOrb = o; bestJd = h }
+          }
+
+          const daysFromNow = Math.round(bestJd - nowJd)
+          events.push({
+            type: 'mundane-aspect',
+            planetA: nameA,
+            planetB: nameB,
+            aspect: asp.name,
+            aspectDeg: asp.deg,
+            orb: Math.round(orb * 100) / 100,
+            exactDate: jdToLocalDateStr(bestJd),
+            signA: posA.sign,
+            degreeA: posA.degree,
+            minuteA: posA.minute,
+            signB: posB.sign,
+            degreeB: posB.degree,
+            minuteB: posB.minute,
+            houseA: cusps ? lngToHouse(lngA, cusps) : null,
+            houseB: cusps ? lngToHouse(lngB, cusps) : null,
+            daysUntil: daysFromNow,
+            lingerDays: 14, // outer planet aspects are slow, linger longer
+          })
+          break // only show closest aspect per pair
+        }
+      }
+    }
+  }
+
+  // Sort: today first, then recent past (by recency), then upcoming (by soonest)
+  events.sort((a, b) => {
+    const da = a.daysUntil ?? 999
+    const db = b.daysUntil ?? 999
+    // Today (0) comes first
+    if (da === 0 && db !== 0) return -1
+    if (db === 0 && da !== 0) return 1
+    // Past events (negative) sorted by recency (closest to 0 first)
+    if (da < 0 && db < 0) return db - da
+    // Past before future
+    if (da < 0 && db > 0) return -1
+    if (da > 0 && db < 0) return 1
+    // Future events sorted by soonest
+    return da - db
+  })
   return events
 }
 

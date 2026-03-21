@@ -1623,33 +1623,92 @@ Respond with ONLY valid JSON:
                   sky events
                 </div>
                 {skyEvents.map((ev, i) => {
-                  const isRetro = ev.type === 'retrograde-station';
-                  const iconMap = { 'retrograde-station': '℞', 'new-moon': '🌑', 'first-quarter': '🌓', 'full-moon': '🌕', 'third-quarter': '🌗' };
-                  const colorMap = { 'retrograde-station': '#A8C8FF', 'new-moon': '#E0E0FF', 'first-quarter': '#E0E0FF', 'full-moon': '#FFD47F', 'third-quarter': '#FFD47F' };
+                  const planetGlyphs = { Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂', Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇' };
+                  const signGlyphs = { Aries:'♈', Taurus:'♉', Gemini:'♊', Cancer:'♋', Leo:'♌', Virgo:'♍', Libra:'♎', Scorpio:'♏', Sagittarius:'♐', Capricorn:'♑', Aquarius:'♒', Pisces:'♓' };
+                  const planetColors = { Mercury:'#A8C8FF', Venus:'#FFB8D4', Mars:'#FF9A8A', Jupiter:'#FFD47F', Saturn:'#B8C8E0', Uranus:'#7FE8D4', Neptune:'#B4A8FF', Pluto:'#D4A8C8' };
+                  const fireWater = { Aries:'#FF9A8A', Leo:'#FFD47F', Sagittarius:'#FFA870', Cancer:'#A8C8FF', Scorpio:'#B4A8FF', Pisces:'#B8D4FF' };
+                  const earthAir = { Taurus:'#A8D8A8', Virgo:'#C8D8A8', Capricorn:'#B8C8A8', Gemini:'#FFE8A8', Libra:'#FFB8D4', Aquarius:'#7FE8D4' };
+                  const elementColors = { ...fireWater, ...earthAir };
+
+                  const aspectGlyphMap = { conjunction:'☌', sextile:'⚹', square:'□', trine:'△', opposition:'☍' };
+                  const iconMap = {
+                    'retrograde-station': '℞',
+                    'station-direct': planetGlyphs[ev.planet] || '↑',
+                    'station-retrograde': '℞',
+                    'sign-ingress': signGlyphs[ev.sign] || '◎',
+                    'mundane-aspect': aspectGlyphMap[ev.aspect] || '◎',
+                    'new-moon': '🌑', 'first-quarter': '🌓', 'full-moon': '🌕', 'third-quarter': '🌗',
+                  };
+                  const colorMap = {
+                    'retrograde-station': planetColors[ev.planet] || '#A8C8FF',
+                    'station-direct': planetColors[ev.planet] || '#A8C8FF',
+                    'station-retrograde': planetColors[ev.planet] || '#A8C8FF',
+                    'sign-ingress': elementColors[ev.sign] || '#C49FFF',
+                    'mundane-aspect': '#C49FFF',
+                    'new-moon': '#E0E0FF', 'first-quarter': '#E0E0FF', 'full-moon': '#FFD47F', 'third-quarter': '#FFD47F',
+                  };
                   const icon = iconMap[ev.type] || '◎';
                   const color = colorMap[ev.type] || '#C49FFF';
-                  const title = ev.name || (isRetro ? `${ev.planet} stations direct` : ev.type);
-                  const daysLabel = ev.daysUntil === 0 ? 'today' : ev.daysUntil === 1 ? 'tomorrow' : `in ${ev.daysUntil} days`;
-                  const subtitle = isRetro
-                    ? `goes direct in ${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${daysLabel}`
-                    : `${ev.sign} ${ev.degree}°${ev.minute}' · ${ev.house ? `${ev.house}th house` : ''} · ${daysLabel}`;
-                  const dateLabel = new Date(ev.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                  const houseSuffix = ev.house ? (() => {
+                    const h = ev.house;
+                    const s = h === 1 ? 'st' : h === 2 ? 'nd' : h === 3 ? 'rd' : 'th';
+                    return `${h}${s} house`;
+                  })() : '';
+
+                  const daysUntil = ev.daysUntil ?? 0;
+                  const daysLabel = daysUntil === 0 ? 'today'
+                    : daysUntil === -1 ? '1 day ago'
+                    : daysUntil < 0 ? `${Math.abs(daysUntil)} days ago`
+                    : daysUntil === 1 ? 'tomorrow'
+                    : `in ${daysUntil} days`;
+
+                  const aspectGlyphs = { conjunction:'☌', sextile:'⚹', square:'□', trine:'△', opposition:'☍' };
+
+                  let title, subtitle;
+                  if (ev.type === 'retrograde-station') {
+                    title = `${ev.planet} retrograde`;
+                    subtitle = `stations direct in ${ev.sign} ${ev.degree}°${ev.minute}' · ${houseSuffix ? houseSuffix + ' · ' : ''}${daysLabel}`;
+                  } else if (ev.type === 'station-direct') {
+                    title = `${ev.planet} goes direct`;
+                    subtitle = `in ${ev.sign} ${ev.degree}°${ev.minute}' · ${houseSuffix ? houseSuffix + ' · ' : ''}${daysLabel}`;
+                  } else if (ev.type === 'station-retrograde') {
+                    title = `${ev.planet} stations retrograde`;
+                    subtitle = `in ${ev.sign} ${ev.degree}°${ev.minute}' · ${houseSuffix ? houseSuffix + ' · ' : ''}${daysLabel}`;
+                  } else if (ev.type === 'sign-ingress') {
+                    title = `${ev.planet} enters ${ev.sign}`;
+                    subtitle = `${ev.degree}°${ev.minute}' · ${houseSuffix ? houseSuffix + ' · ' : ''}${daysLabel}`;
+                  } else if (ev.type === 'mundane-aspect') {
+                    const aspGlyph = aspectGlyphs[ev.aspect] || '';
+                    title = `${ev.planetA} ${ev.aspect} ${ev.planetB}`;
+                    const houseInfo = [ev.houseA && `${ev.houseA}${ev.houseA === 1 ? 'st' : ev.houseA === 2 ? 'nd' : ev.houseA === 3 ? 'rd' : 'th'}`, ev.houseB && `${ev.houseB}${ev.houseB === 1 ? 'st' : ev.houseB === 2 ? 'nd' : ev.houseB === 3 ? 'rd' : 'th'}`].filter(Boolean).join('–');
+                    subtitle = `${aspGlyph} ${ev.signA} ${ev.degreeA}°${ev.minuteA}' / ${ev.signB} ${ev.degreeB}°${ev.minuteB}' · ${ev.orb < 0.5 ? 'exact' : `${ev.orb}° orb`}${houseInfo ? ` · ${houseInfo} house` : ''} · ${daysLabel}`;
+                  } else {
+                    title = ev.name || ev.type;
+                    subtitle = `${ev.sign} ${ev.degree}°${ev.minute}' · ${houseSuffix ? houseSuffix + ' · ' : ''}${daysLabel}`;
+                  }
+
+                  const isNow = daysUntil === 0;
+                  const dateStr = ev.date || ev.stationDate || ev.exactDate;
+                  const dateLabel = dateStr ? new Date(dateStr + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
 
                   return (
                     <div key={i} onClick={() => openEventDetail({ ...ev, name: title })} style={{
                       background: `${color}0a`,
-                      border: `1px solid ${color}20`,
+                      border: `1px solid ${color}${isNow ? '40' : '20'}`,
                       borderRadius: 16,
                       padding: "16px 20px",
                       animation: `fadeUp 0.5s ${i * 0.08}s ease both`,
                       cursor: "pointer",
                       transition: "border-color 0.2s",
+                      ...(isNow ? { boxShadow: `0 0 16px ${color}18` } : {}),
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ fontSize: 22, width: 32, textAlign: "center", flexShrink: 0 }}>{icon}</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                             <div style={{ fontSize: 15, color, letterSpacing: "0.04em" }}>{title}</div>
+                            {isNow && <div style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color, opacity: 0.7, background: `${color}15`, padding: "1px 6px", borderRadius: 6 }}>now</div>}
                             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>{dateLabel}</div>
                           </div>
                           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 4, letterSpacing: "0.04em", lineHeight: 1.5 }}>
