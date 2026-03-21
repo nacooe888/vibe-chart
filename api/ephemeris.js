@@ -384,72 +384,83 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
     }
   }
 
-  // 4. Mundane transit-to-transit aspects (slow planet pairs)
+  // 4. Mundane transit-to-transit aspects
+  // Two tiers: outer-outer (slow, wide orb) and personal-to-outer (fast, tight orb)
+  const OUTER_IDS = [5, 6, 7, 8, 9, 15] // Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron
+  const PERSONAL_IDS = [0, 2, 3, 4] // Sun, Mercury, Venus, Mars
+
+  const mundanePairs = []
+  // Outer-outer pairs: 2° orb, 10 day linger, scan ±60 days
+  for (let i = 0; i < OUTER_IDS.length; i++) {
+    for (let j = i + 1; j < OUTER_IDS.length; j++) {
+      mundanePairs.push({ a: OUTER_IDS[i], b: OUTER_IDS[j], maxOrb: 2, linger: 10, scan: 60 })
+    }
+  }
+  // Personal-to-outer pairs: 1° orb, 3 day linger, scan ±7 days
+  for (const p of PERSONAL_IDS) {
+    for (const o of OUTER_IDS) {
+      mundanePairs.push({ a: p, b: o, maxOrb: 1, linger: 3, scan: 7 })
+    }
+  }
+
   const ASPECT_DEFS = [
-    { name: 'conjunction', deg: 0, orb: 2 },
-    { name: 'sextile', deg: 60, orb: 2 },
-    { name: 'square', deg: 90, orb: 2 },
-    { name: 'trine', deg: 120, orb: 2 },
-    { name: 'opposition', deg: 180, orb: 2 },
+    { name: 'conjunction', deg: 0 },
+    { name: 'sextile', deg: 60 },
+    { name: 'square', deg: 90 },
+    { name: 'trine', deg: 120 },
+    { name: 'opposition', deg: 180 },
   ]
-  // Only outer planet pairs (Jupiter through Pluto) for meaningful slow aspects
-  const MUNDANE_PLANETS = [5, 6, 7, 8, 9] // Jupiter, Saturn, Uranus, Neptune, Pluto
-  for (let i = 0; i < MUNDANE_PLANETS.length; i++) {
-    for (let j = i + 1; j < MUNDANE_PLANETS.length; j++) {
-      const pidA = MUNDANE_PLANETS[i]
-      const pidB = MUNDANE_PLANETS[j]
-      const nameA = PLANET_NAMES[pidA]
-      const nameB = PLANET_NAMES[pidB]
-      const lngA = swe.calc_ut(nowJd, pidA, FLAGS)[0]
-      const lngB = swe.calc_ut(nowJd, pidB, FLAGS)[0]
 
-      for (const asp of ASPECT_DEFS) {
-        const orb = aspectOrb(lngA, lngB, asp.deg)
-        if (orb <= asp.orb) {
-          // Currently in aspect — find if it's applying or separating, and when exact
-          const posA = lngToSign(lngA)
-          const posB = lngToSign(lngB)
+  for (const pair of mundanePairs) {
+    const nameA = PLANET_NAMES[pair.a]
+    const nameB = PLANET_NAMES[pair.b]
+    const lngA = swe.calc_ut(nowJd, pair.a, FLAGS)[0]
+    const lngB = swe.calc_ut(nowJd, pair.b, FLAGS)[0]
 
-          // Scan nearby to find exact date (within 60 days back/forward)
-          let bestOrb = orb, bestJd = nowJd
-          for (let jd = nowJd - 60; jd <= nowJd + 60; jd += DAY_JD) {
-            const a = swe.calc_ut(jd, pidA, FLAGS)[0]
-            const b = swe.calc_ut(jd, pidB, FLAGS)[0]
-            const o = aspectOrb(a, b, asp.deg)
-            if (o < bestOrb) { bestOrb = o; bestJd = jd }
-          }
-          // Refine to hour
-          for (let h = bestJd - DAY_JD; h <= bestJd + DAY_JD; h += HOUR_JD) {
-            const a = swe.calc_ut(h, pidA, FLAGS)[0]
-            const b = swe.calc_ut(h, pidB, FLAGS)[0]
-            const o = aspectOrb(a, b, asp.deg)
-            if (o < bestOrb) { bestOrb = o; bestJd = h }
-          }
+    for (const asp of ASPECT_DEFS) {
+      const orb = aspectOrb(lngA, lngB, asp.deg)
+      if (orb <= pair.maxOrb) {
+        const posA = lngToSign(lngA)
+        const posB = lngToSign(lngB)
 
-          const daysFromNow = Math.round(bestJd - nowJd)
-          // Skip if exact hit was more than 10 days ago
-          if (daysFromNow < -10) break
-          events.push({
-            type: 'mundane-aspect',
-            planetA: nameA,
-            planetB: nameB,
-            aspect: asp.name,
-            aspectDeg: asp.deg,
-            orb: Math.round(orb * 100) / 100,
-            exactDate: jdToLocalDateStr(bestJd),
-            signA: posA.sign,
-            degreeA: posA.degree,
-            minuteA: posA.minute,
-            signB: posB.sign,
-            degreeB: posB.degree,
-            minuteB: posB.minute,
-            houseA: cusps ? lngToHouse(lngA, cusps) : null,
-            houseB: cusps ? lngToHouse(lngB, cusps) : null,
-            daysUntil: daysFromNow,
-            lingerDays: 10,
-          })
-          break // only show closest aspect per pair
+        // Find exact date within scan window
+        let bestOrb = orb, bestJd = nowJd
+        for (let jd = nowJd - pair.scan; jd <= nowJd + pair.scan; jd += DAY_JD) {
+          const a = swe.calc_ut(jd, pair.a, FLAGS)[0]
+          const b = swe.calc_ut(jd, pair.b, FLAGS)[0]
+          const o = aspectOrb(a, b, asp.deg)
+          if (o < bestOrb) { bestOrb = o; bestJd = jd }
         }
+        // Refine to hour
+        for (let h = bestJd - DAY_JD; h <= bestJd + DAY_JD; h += HOUR_JD) {
+          const a = swe.calc_ut(h, pair.a, FLAGS)[0]
+          const b = swe.calc_ut(h, pair.b, FLAGS)[0]
+          const o = aspectOrb(a, b, asp.deg)
+          if (o < bestOrb) { bestOrb = o; bestJd = h }
+        }
+
+        const daysFromNow = Math.round(bestJd - nowJd)
+        if (daysFromNow < -pair.linger) break
+        events.push({
+          type: 'mundane-aspect',
+          planetA: nameA,
+          planetB: nameB,
+          aspect: asp.name,
+          aspectDeg: asp.deg,
+          orb: Math.round(orb * 100) / 100,
+          exactDate: jdToLocalDateStr(bestJd),
+          signA: posA.sign,
+          degreeA: posA.degree,
+          minuteA: posA.minute,
+          signB: posB.sign,
+          degreeB: posB.degree,
+          minuteB: posB.minute,
+          houseA: cusps ? lngToHouse(lngA, cusps) : null,
+          houseB: cusps ? lngToHouse(lngB, cusps) : null,
+          daysUntil: daysFromNow,
+          lingerDays: pair.linger,
+        })
+        break // only show closest aspect per pair
       }
     }
   }
