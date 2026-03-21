@@ -1058,7 +1058,7 @@ ${ev.daysUntil != null ? `Days until: ${ev.daysUntil}` : ''}
 
 ${skyCtx}
 
-First explain what this event means for the collective — the broader cultural/societal energy shift. Then give a personal interpretation of how it activates this person's chart specifically, referencing the house and any natal planets near this degree.
+First explain what this event means for the collective — the broader cultural/societal energy shift. Then give a personal interpretation of how it activates this person's chart specifically. ONLY reference natal planets that appear in the TRANSIT-TO-NATAL ASPECTS list above — do not guess or infer natal placements that aren't explicitly listed.
 
 Respond with ONLY valid JSON:
 {
