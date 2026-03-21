@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { capture } from "../lib/analytics";
 import { shortReportPrompt, deepParagraphPrompt, deepTransitsPrompt, transitDeepPrompt, transitRitualPrompt, ritualPrompt } from "../lib/prompts";
 import { saveReflection, loadReflections, loadArcReflections } from "../lib/reflectionStorage";
+import { getCached, setCache } from "../lib/aiCache";
 
 // Authenticated fetch wrapper — adds Supabase JWT so the server can rate-limit
 async function claudeFetch(body) {
@@ -17,7 +18,7 @@ async function claudeFetch(body) {
       "Content-Type": "application/json",
       ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ temperature: 0, ...body }),
   });
 }
 
@@ -315,9 +316,10 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
   };
 
   useEffect(() => {
-    if (transitRitualCache[cacheKey]) { setOptions(transitRitualCache[cacheKey]); setLoading(false); return; }
+    const persisted = transitRitualCache[cacheKey] || getCached('transitRitual', cacheKey);
+    if (persisted) { transitRitualCache[cacheKey] = persisted; setOptions(persisted); setLoading(false); return; }
     generateTransitRitualOptions(vibe, vibeData, transit, skyContext)
-      .then(d => { transitRitualCache[cacheKey] = d; setOptions(d); setLoading(false); })
+      .then(d => { transitRitualCache[cacheKey] = d; setCache('transitRitual', cacheKey, d); setOptions(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [cacheKey]);
 
@@ -494,26 +496,24 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
   const journalPromptData = getJournalPrompt(planetCategory, isArc ? arcHit : null, arcDates, previousEntries);
 
   useEffect(() => {
-    if (transitCache[cacheKey]) { setData(transitCache[cacheKey]); setLoading(false); return; }
+    const persisted = transitCache[cacheKey] || getCached('transitDeep', cacheKey);
+    if (persisted) { transitCache[cacheKey] = persisted; setData(persisted); setLoading(false); return; }
     generateTransitDeep(vibe, vibeData, transit, skyContext, natalChart)
       .then(r => {
         try {
           let cleaned = r.replace(/```json|```/g,"").trim();
-          // If JSON was truncated, try to close it
           if (!cleaned.endsWith("}")) {
-            // Count unclosed braces and close them
             const opens = (cleaned.match(/\{/g) || []).length;
             const closes = (cleaned.match(/\}/g) || []).length;
-            // Truncate at last complete value (before trailing comma or partial string)
             cleaned = cleaned.replace(/,?\s*"[^"]*"?\s*:?\s*"?[^"{}]*$/, "");
             for (let i = 0; i < opens - closes; i++) cleaned += "}";
           }
           const parsed = JSON.parse(cleaned);
-          // Ensure history has expected shape
           if (parsed.history && !parsed.history.pastOccurrences) {
             parsed.history.pastOccurrences = parsed.history.lastOccurrence ? [parsed.history.lastOccurrence] : [];
           }
           transitCache[cacheKey] = parsed;
+          setCache('transitDeep', cacheKey, parsed);
           setData(parsed);
         } catch {
           const fallback = {
@@ -1078,7 +1078,8 @@ const deepReportCache = {};
 
 function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, latestVibe, hasNatal }) {
   const vibeData = getVibeData(vibe, latestVibe);
-  const cached = deepReportCache[vibe];
+  const cached = deepReportCache[vibe] || getCached('deepReport', vibe);
+  if (cached && !deepReportCache[vibe]) deepReportCache[vibe] = cached;
   const [paragraph, setParagraph] = useState(cached?.paragraph || null);
   const [transits, setTransits] = useState(cached?.transits || null);
   const [paraLoading, setParaLoading] = useState(!cached?.paragraph);
@@ -1103,6 +1104,7 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
         setParagraph(p);
         setParaLoading(false);
         deepReportCache[vibe] = { ...(deepReportCache[vibe] || {}), paragraph: p };
+        setCache('deepReport', vibe, deepReportCache[vibe]);
       })
       .catch(() => {
         setParagraph("The sky is meeting you exactly where you are.");
@@ -1114,6 +1116,7 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
         setTransits(t);
         setTransitsLoading(false);
         deepReportCache[vibe] = { ...(deepReportCache[vibe] || {}), transits: t };
+        setCache('deepReport', vibe, deepReportCache[vibe]);
       })
       .catch(() => {
         setTransits([]);
@@ -1241,12 +1244,13 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitL
 
   useEffect(() => {
     if (!selectedVibe || transitLoading) { setReport(null); return; }
-    if (shortReportCache[selectedVibe]) { setReport(shortReportCache[selectedVibe]); return; }
+    const persisted = shortReportCache[selectedVibe] || getCached('shortReport', selectedVibe);
+    if (persisted) { shortReportCache[selectedVibe] = persisted; setReport(persisted); return; }
     setReport(null);
     setLoading(true);
     const vibeData = getVibeData(selectedVibe, latestVibe);
     generateShortReport(selectedVibe, vibeData, skyContext)
-      .then(r => { shortReportCache[selectedVibe] = r; setReport(r); setLoading(false); })
+      .then(r => { shortReportCache[selectedVibe] = r; setCache('shortReport', selectedVibe, r); setReport(r); setLoading(false); })
       .catch(() => setLoading(false));
   }, [selectedVibe, transitLoading, hasLiveData]);
 
@@ -1401,9 +1405,10 @@ function RitualScreen({ vibe, vibeColor, onBack, skyContext, latestVibe }) {
   const paths = getPathsForVibe(vibe);
 
   useEffect(() => {
-    if (ritualCache[vibe]) { setOptions(ritualCache[vibe]); setLoading(false); return; }
+    const persisted = ritualCache[vibe] || getCached('ritual', vibe);
+    if (persisted) { ritualCache[vibe] = persisted; setOptions(persisted); setLoading(false); return; }
     generateRitualOptions(vibe, vibeData, skyContext)
-      .then(d => { ritualCache[vibe] = d; setOptions(d); setLoading(false); })
+      .then(d => { ritualCache[vibe] = d; setCache('ritual', vibe, d); setOptions(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [vibe]);
 

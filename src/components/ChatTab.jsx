@@ -16,7 +16,7 @@ async function claudeFetch(body) {
       "Content-Type": "application/json",
       ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ temperature: 0, ...body }),
   });
 }
 

@@ -5,6 +5,7 @@ import { loadProfile } from "../lib/profileStorage";
 import { buildSkyContext, getSkyContext } from "./EnergyReport";
 import { patternDetailPrompt } from "../lib/prompts";
 import { supabase } from "../lib/supabase";
+import { getCached, setCache } from "../lib/aiCache";
 
 async function claudeFetch(body) {
   const { data: { session } } = await supabase.auth.getSession();
@@ -14,7 +15,7 @@ async function claudeFetch(body) {
       "Content-Type": "application/json",
       ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ temperature: 0, ...body }),
   });
 }
 
@@ -966,8 +967,10 @@ export default function TransitsTab() {
   async function openPatternDetail(pattern) {
     setSelectedPattern(pattern);
     const cacheKey = `${pattern.type}-${pattern.planet}-${pattern.title}`;
-    if (patternCache.current[cacheKey]) {
-      setPatternDetail(patternCache.current[cacheKey]);
+    const persisted = patternCache.current[cacheKey] || getCached('pattern', cacheKey);
+    if (persisted) {
+      patternCache.current[cacheKey] = persisted;
+      setPatternDetail(persisted);
       return;
     }
     setPatternDetail(null);
@@ -984,6 +987,7 @@ export default function TransitsTab() {
       const text = data.content?.[0]?.text || "{}";
       const json = JSON.parse(text.replace(/```json|```/g, "").trim());
       patternCache.current[cacheKey] = json;
+      setCache('pattern', cacheKey, json);
       setPatternDetail(json);
     } catch (e) {
       console.error('[pattern detail]', e);
@@ -996,8 +1000,10 @@ export default function TransitsTab() {
     setSelectedTransit(w);
     setShowTimeline(false);
     const cacheKey = `${w.transit}-${w.aspect.name}-${w.natal}`;
-    if (transitDetailCache.current[cacheKey]) {
-      setTransitDetail(transitDetailCache.current[cacheKey]);
+    const persisted = transitDetailCache.current[cacheKey] || getCached('transit', cacheKey);
+    if (persisted) {
+      transitDetailCache.current[cacheKey] = persisted;
+      setTransitDetail(persisted);
       return;
     }
     setTransitDetail(null);
@@ -1029,6 +1035,7 @@ IMPORTANT: ONLY reference transits, aspects, and natal placements that are expli
       const text = data.content?.[0]?.text || "{}";
       const json = JSON.parse(text.replace(/```json|```/g, "").trim());
       transitDetailCache.current[cacheKey] = json;
+      setCache('transit', cacheKey, json);
       setTransitDetail(json);
     } catch (e) {
       console.error('[transit detail]', e);
@@ -1041,8 +1048,10 @@ IMPORTANT: ONLY reference transits, aspects, and natal placements that are expli
     setSelectedEvent(ev);
     const evDate = ev.date || ev.stationDate || ev.exactDate || '';
     const cacheKey = `${ev.type}-${ev.planet || ev.planetA || ''}-${evDate}`;
-    if (eventCache.current[cacheKey]) {
-      setEventDetail(eventCache.current[cacheKey]);
+    const persisted = eventCache.current[cacheKey] || getCached('event', cacheKey);
+    if (persisted) {
+      eventCache.current[cacheKey] = persisted;
+      setEventDetail(persisted);
       return;
     }
     setEventDetail(null);
@@ -1081,6 +1090,7 @@ Respond with ONLY valid JSON:
       const text = data.content?.[0]?.text || "{}";
       const json = JSON.parse(text.replace(/```json|```/g, "").trim());
       eventCache.current[cacheKey] = json;
+      setCache('event', cacheKey, json);
       setEventDetail(json);
     } catch (e) {
       console.error('[event detail]', e);
@@ -1092,8 +1102,10 @@ Respond with ONLY valid JSON:
   async function openActivationDetail(act) {
     setSelectedActivation(act);
     const cacheKey = `${act.planet}-${act.aspects.map(a => `${a.transit}${a.aspect.name}${a.natal}`).join(',')}`;
-    if (activationCache.current[cacheKey]) {
-      setActivationBreakdown(activationCache.current[cacheKey]);
+    const persisted = activationCache.current[cacheKey] || getCached('activation', cacheKey);
+    if (persisted) {
+      activationCache.current[cacheKey] = persisted;
+      setActivationBreakdown(persisted);
       return;
     }
     setActivationBreakdown(null);
@@ -1127,6 +1139,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
       const text = data.content?.[0]?.text || "{}";
       const json = JSON.parse(text.replace(/```json|```/g, "").trim());
       activationCache.current[cacheKey] = json;
+      setCache('activation', cacheKey, json);
       setActivationBreakdown(json);
     } catch (e) {
       console.error('[activation breakdown]', e);
