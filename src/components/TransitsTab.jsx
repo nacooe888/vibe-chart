@@ -1113,7 +1113,8 @@ ${skyCtx}
 Respond with ONLY valid JSON:
 {
   "lines": [${act.aspects.map(a => `{"transit": "${a.transit} ${a.aspect.name}", "line": "1 sentence — what this specific aspect to natal ${act.planet} is doing"}`).join(', ')}],
-  "synthesis": "2-3 sentences synthesizing what it means to have all of these hitting natal ${act.planet} at once. What is the combined effect? What is natal ${act.planet} being asked to do?"
+  "synthesis": "2-3 sentences synthesizing what it means to have all of these hitting natal ${act.planet} at once. What is the combined effect? What is natal ${act.planet} being asked to do?",
+  "howToWork": "1-2 sentences. Practical, specific suggestion for working with all this activation on natal ${act.planet} right now."
 }
 
 IMPORTANT: ONLY reference transits and placements explicitly listed above. Do not invent others.`;
@@ -1276,6 +1277,24 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
               </div>
               <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.8, letterSpacing: "0.02em" }}>
                 {activationBreakdown.synthesis}
+              </div>
+            </div>
+          )}
+          {activationBreakdown?.howToWork && (
+            <div style={{
+              background: `${act.color}06`,
+              border: `1px solid ${act.color}10`,
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginTop: 8,
+              animation: "fadeUp 0.4s 0.3s ease both",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 16, color: act.color, opacity: 0.6 }}>⟡</span>
+                <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: act.color, opacity: 0.5 }}>how to work with it</span>
+              </div>
+              <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.8 }}>
+                {activationBreakdown.howToWork}
               </div>
             </div>
           )}
