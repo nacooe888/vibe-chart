@@ -1058,18 +1058,19 @@ ${ev.daysUntil != null ? `Days until: ${ev.daysUntil}` : ''}
 
 ${skyCtx}
 
-Give a personal interpretation of how this event activates this person's chart specifically. Reference the house and any natal planets near this degree.
+First explain what this event means for the collective — the broader cultural/societal energy shift. Then give a personal interpretation of how it activates this person's chart specifically, referencing the house and any natal planets near this degree.
 
 Respond with ONLY valid JSON:
 {
   "headline": "3-6 word headline",
+  "collective": "2-3 sentences. What this transit means for the collective — the themes, tensions, or openings everyone is feeling.",
   "interpretation": "2-3 sentences. What this means for them personally based on the house and natal placements it activates.",
   "howToWork": "1-2 sentences. Practical suggestion for working with this energy."
 }`;
       const res = await claudeFetch({
         model: "claude-haiku-4-5-20251001",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 400,
+        max_tokens: 600,
       });
       const data = await res.json();
       const text = data.content?.[0]?.text || "{}";
@@ -1283,6 +1284,20 @@ Respond with ONLY valid JSON:
                 <div style={{ fontSize: 18, color, letterSpacing: "0.04em", marginBottom: 10, fontWeight: 300 }}>
                   {eventDetail.headline}
                 </div>
+                {eventDetail.collective && (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color, opacity: 0.5 }}>the collective</span>
+                    </div>
+                    <div style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", lineHeight: 1.8, letterSpacing: "0.02em", marginBottom: 14 }}>
+                      {eventDetail.collective}
+                    </div>
+                    <div style={{ width: 30, height: 1, background: `${color}20`, margin: "0 auto 14px" }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color, opacity: 0.5 }}>your chart</span>
+                    </div>
+                  </>
+                )}
                 <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.8, letterSpacing: "0.02em" }}>
                   {eventDetail.interpretation}
                 </div>
