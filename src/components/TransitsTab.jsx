@@ -777,6 +777,8 @@ export default function TransitsTab() {
   const [showTimeline, setShowTimeline] = useState(false);
   const [skyEvents, setSkyEvents] = useState(null);
   const [selectedActivation, setSelectedActivation] = useState(null);
+  const [activationBreakdown, setActivationBreakdown] = useState(null);
+  const [activationBreakdownLoading, setActivationBreakdownLoading] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [eventDetail, setEventDetail] = useState(null);
   const [eventDetailLoading, setEventDetailLoading] = useState(false);
@@ -786,6 +788,7 @@ export default function TransitsTab() {
   const patternCache = useRef({});
   const eventCache = useRef({});
   const transitDetailCache = useRef({});
+  const activationCache = useRef({});
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1086,6 +1089,51 @@ Respond with ONLY valid JSON:
     setEventDetailLoading(false);
   }
 
+  async function openActivationDetail(act) {
+    setSelectedActivation(act);
+    const cacheKey = `${act.planet}-${act.aspects.map(a => `${a.transit}${a.aspect.name}${a.natal}`).join(',')}`;
+    if (activationCache.current[cacheKey]) {
+      setActivationBreakdown(activationCache.current[cacheKey]);
+      return;
+    }
+    setActivationBreakdown(null);
+    setActivationBreakdownLoading(true);
+    try {
+      const skyCtx = getSkyContext(natalChart, transitChart);
+      const aspectList = act.aspects.map(a =>
+        `- Transit ${a.transit} ${a.aspect.name} natal ${act.planet} (${a.orb.toFixed(1)}° orb)`
+      ).join('\n');
+      const prompt = `You are a warm, direct astrologer. Break down how natal ${act.planet} is being activated.
+
+These transits are all currently hitting natal ${act.planet}:
+${aspectList}
+
+${skyCtx}
+
+Respond with ONLY valid JSON:
+{
+  "lines": [${act.aspects.map(a => `{"transit": "${a.transit} ${a.aspect.name}", "line": "1 sentence — what this specific aspect to natal ${act.planet} is doing"}`).join(', ')}],
+  "synthesis": "2-3 sentences synthesizing what it means to have all of these hitting natal ${act.planet} at once. What is the combined effect? What is natal ${act.planet} being asked to do?"
+}
+
+IMPORTANT: ONLY reference transits and placements explicitly listed above. Do not invent others.`;
+      const res = await claudeFetch({
+        model: "claude-haiku-4-5-20251001",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 600,
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text || "{}";
+      const json = JSON.parse(text.replace(/```json|```/g, "").trim());
+      activationCache.current[cacheKey] = json;
+      setActivationBreakdown(json);
+    } catch (e) {
+      console.error('[activation breakdown]', e);
+      setActivationBreakdown({ error: true });
+    }
+    setActivationBreakdownLoading(false);
+  }
+
   // Activation detail — per-planet pie chart + interpretation
   if (selectedActivation) {
     const act = selectedActivation;
@@ -1127,7 +1175,7 @@ Respond with ONLY valid JSON:
         padding: "36px 20px 100px",
       }}>
         <div style={{ maxWidth: 500, margin: "0 auto" }}>
-          <button onClick={() => setSelectedActivation(null)}
+          <button onClick={() => { setSelectedActivation(null); setActivationBreakdown(null); }}
             style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
             ← back to sky
           </button>
@@ -1171,48 +1219,71 @@ Respond with ONLY valid JSON:
             </svg>
           </div>
 
-          {/* Aspect list */}
+          {/* Aspect breakdown */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {aspects.map((a, ai) => {
-              const nColor = PLANET_COLORS[a.natal] || '#C49FFF';
+              const nColor = PLANET_COLORS[a.transit] || '#C49FFF';
+              const breakdownLine = activationBreakdown?.lines?.find(l => l.transit === `${a.transit} ${a.aspect.name}`);
               return (
-                <div key={ai} onClick={() => openPatternDetail({
-                  type: 'mass-activation',
-                  planet: act.planet,
-                  color: act.color,
-                  title: `${act.planet} ${a.aspect.name} ${a.natal}`,
-                  subtitle: `${a.aspect.name} ${a.natal} — ${a.orb.toFixed(1)}° orb`,
-                })} style={{
+                <div key={ai} style={{
                   background: `${nColor}08`,
                   border: `1px solid ${nColor}15`,
                   borderRadius: 12,
                   padding: "12px 16px",
-                  cursor: "pointer",
                   display: "flex",
-                  alignItems: "center",
+                  alignItems: "flex-start",
                   gap: 12,
                   animation: `fadeUp 0.3s ${ai * 0.05}s ease both`,
                 }}>
-                  <div style={{ fontSize: 18, color: nColor, width: 24, textAlign: "center" }}>
-                    {PLANET_GLYPHS[a.natal] || a.natal}
+                  <div style={{ fontSize: 18, color: nColor, width: 24, textAlign: "center", flexShrink: 0, marginTop: 2 }}>
+                    {PLANET_GLYPHS[a.transit] || a.transit}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", letterSpacing: "0.04em" }}>
-                      {a.aspect.name} {a.natal}
+                      {a.transit} {a.aspect.name} natal {act.planet}
                     </div>
-                  </div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
-                    {a.orb.toFixed(1)}°
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>
+                      {a.orb.toFixed(1)}° orb
+                    </div>
+                    {breakdownLine && (
+                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 6, lineHeight: 1.6, letterSpacing: "0.02em" }}>
+                        {breakdownLine.line}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          <div style={{
-            textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
-            color: "rgba(255,255,255,0.2)", marginTop: 16,
-          }}>tap any aspect for interpretation</div>
+          {/* Synthesis */}
+          {activationBreakdownLoading && (
+            <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
+              <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading these activations...</div>
+            </div>
+          )}
+          {activationBreakdown?.synthesis && (
+            <div style={{
+              background: `${act.color}08`,
+              border: `1px solid ${act.color}15`,
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginTop: 12,
+              animation: "fadeUp 0.4s 0.2s ease both",
+            }}>
+              <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase", color: act.color, opacity: 0.5, marginBottom: 8 }}>
+                the bigger picture
+              </div>
+              <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)", lineHeight: 1.8, letterSpacing: "0.02em" }}>
+                {activationBreakdown.synthesis}
+              </div>
+            </div>
+          )}
+          {activationBreakdown?.error && (
+            <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
+              couldn't load interpretation — try again later
+            </div>
+          )}
         </div>
         <style>{`
           @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
@@ -1805,7 +1876,7 @@ Respond with ONLY valid JSON:
                     <div style={{ display: "flex", justifyContent: "center" }}>
                       <svg viewBox={`0 0 ${(R+14)*2} ${(R+14)*2}`} style={{ width: 220, height: 220 }}>
                         {slices.map((s, si) => (
-                          <g key={si} onClick={() => setSelectedActivation(s)} style={{ cursor: "pointer" }}>
+                          <g key={si} onClick={() => openActivationDetail(s)} style={{ cursor: "pointer" }}>
                             <path d={s.path} fill={s.color} fillOpacity={0.15} stroke={s.color} strokeWidth={1.5} strokeOpacity={0.35} />
                             {s.sweepAngle > 15 && (
                               <>
