@@ -1063,7 +1063,7 @@ First explain what this event means for the collective — the broader cultural/
 Respond with ONLY valid JSON:
 {
   "headline": "3-6 word headline",
-  "collective": "2-3 sentences. What this transit means for the collective — the themes, tensions, or openings everyone is feeling.",
+  "collective": "2-3 sentences. What this transit means for the collective — the themes, tensions, or openings everyone is feeling. Do NOT reference houses here, only signs and planets.",
   "interpretation": "2-3 sentences. What this means for them personally based on the house and natal placements it activates.",
   "howToWork": "1-2 sentences. Practical suggestion for working with this energy."
 }`;
