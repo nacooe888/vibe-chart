@@ -1034,7 +1034,8 @@ Respond with ONLY valid JSON:
 
   async function openEventDetail(ev) {
     setSelectedEvent(ev);
-    const cacheKey = `${ev.type}-${ev.date}`;
+    const evDate = ev.date || ev.stationDate || ev.exactDate || '';
+    const cacheKey = `${ev.type}-${ev.planet || ev.planetA || ''}-${evDate}`;
     if (eventCache.current[cacheKey]) {
       setEventDetail(eventCache.current[cacheKey]);
       return;
@@ -1044,10 +1045,14 @@ Respond with ONLY valid JSON:
     try {
       const skyCtx = getSkyContext(natalChart, transitChart);
       const houseStr = ev.house ? ` in your ${ev.house}th house` : '';
+      const isMundane = ev.type === 'mundane-aspect';
+      const positionStr = isMundane
+        ? `${ev.planetA} in ${ev.signA} ${ev.degreeA}°${ev.minuteA}' ${ev.houseA ? `(${ev.houseA}th house)` : ''} ${ev.aspect} ${ev.planetB} in ${ev.signB} ${ev.degreeB}°${ev.minuteB}' ${ev.houseB ? `(${ev.houseB}th house)` : ''}`
+        : `${ev.sign} ${ev.degree}°${ev.minute}'${houseStr}`;
       const prompt = `You are a warm, direct astrologer giving a personal interpretation.
 
-Event: ${ev.name || ev.type} on ${ev.date}
-Position: ${ev.sign} ${ev.degree}°${ev.minute}'${houseStr}
+Event: ${ev.name || ev.type} on ${evDate}
+Position: ${positionStr}
 ${ev.planet ? `Planet: ${ev.planet}` : ''}
 ${ev.daysUntil != null ? `Days until: ${ev.daysUntil}` : ''}
 
