@@ -386,7 +386,7 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
 
   // 4. Mundane transit-to-transit aspects
   // Two tiers: outer-outer (slow, wide orb) and personal-to-outer (fast, tight orb)
-  const OUTER_IDS = [5, 6, 7, 8, 9, 15] // Jupiter, Saturn, Uranus, Neptune, Pluto, Chiron
+  const OUTER_IDS = [5, 6, 7, 8, 9, 11, 15] // Jupiter, Saturn, Uranus, Neptune, Pluto, TrueNode, Chiron
   const PERSONAL_IDS = [0, 2, 3, 4] // Sun, Mercury, Venus, Mars
 
   const mundanePairs = []
@@ -396,10 +396,10 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
       mundanePairs.push({ a: OUTER_IDS[i], b: OUTER_IDS[j], maxOrb: 2, linger: 10, scan: 60 })
     }
   }
-  // Personal-to-outer pairs: 1° orb, 3 day linger, scan ±7 days
+  // Personal-to-outer pairs: 2° orb, 3 day linger, scan ±7 days
   for (const p of PERSONAL_IDS) {
     for (const o of OUTER_IDS) {
-      mundanePairs.push({ a: p, b: o, maxOrb: 1, linger: 3, scan: 7 })
+      mundanePairs.push({ a: p, b: o, maxOrb: 2, linger: 3, scan: 7 })
     }
   }
 
@@ -440,7 +440,6 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
         }
 
         const daysFromNow = Math.round(bestJd - nowJd)
-        if (daysFromNow < -pair.linger) break
         events.push({
           type: 'mundane-aspect',
           planetA: nameA,

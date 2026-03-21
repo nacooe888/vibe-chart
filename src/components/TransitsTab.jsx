@@ -1047,7 +1047,7 @@ Respond with ONLY valid JSON:
       const houseStr = ev.house ? ` in your ${ev.house}th house` : '';
       const isMundane = ev.type === 'mundane-aspect';
       const positionStr = isMundane
-        ? `${ev.planetA} in ${ev.signA} ${ev.degreeA}°${ev.minuteA}' ${ev.houseA ? `(${ev.houseA}th house)` : ''} ${ev.aspect} ${ev.planetB} in ${ev.signB} ${ev.degreeB}°${ev.minuteB}' ${ev.houseB ? `(${ev.houseB}th house)` : ''}`
+        ? `${ev.planetA === 'TrueNode' ? 'North Node' : ev.planetA} in ${ev.signA} ${ev.degreeA}°${ev.minuteA}' ${ev.houseA ? `(${ev.houseA}th house)` : ''} ${ev.aspect} ${ev.planetB === 'TrueNode' ? 'North Node' : ev.planetB} in ${ev.signB} ${ev.degreeB}°${ev.minuteB}' ${ev.houseB ? `(${ev.houseB}th house)` : ''}`
         : `${ev.sign} ${ev.degree}°${ev.minute}'${houseStr}`;
       const prompt = `You are a warm, direct astrologer giving a personal interpretation.
 
@@ -1643,9 +1643,10 @@ Respond with ONLY valid JSON:
                   sky events
                 </div>
                 {skyEvents.map((ev, i) => {
-                  const planetGlyphs = { Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂', Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇' };
+                  const planetGlyphs = { Sun:'☉', Moon:'☽', Mercury:'☿', Venus:'♀', Mars:'♂', Jupiter:'♃', Saturn:'♄', Uranus:'♅', Neptune:'♆', Pluto:'♇', TrueNode:'☊', Chiron:'⚷' };
+                  const displayNames = { TrueNode: 'North Node' };
                   const signGlyphs = { Aries:'♈', Taurus:'♉', Gemini:'♊', Cancer:'♋', Leo:'♌', Virgo:'♍', Libra:'♎', Scorpio:'♏', Sagittarius:'♐', Capricorn:'♑', Aquarius:'♒', Pisces:'♓' };
-                  const planetColors = { Mercury:'#A8C8FF', Venus:'#FFB8D4', Mars:'#FF9A8A', Jupiter:'#FFD47F', Saturn:'#B8C8E0', Uranus:'#7FE8D4', Neptune:'#B4A8FF', Pluto:'#D4A8C8' };
+                  const planetColors = { Mercury:'#A8C8FF', Venus:'#FFB8D4', Mars:'#FF9A8A', Jupiter:'#FFD47F', Saturn:'#B8C8E0', Uranus:'#7FE8D4', Neptune:'#B4A8FF', Pluto:'#D4A8C8', TrueNode:'#B0B0B0', Chiron:'#D0C8A0' };
                   const fireWater = { Aries:'#FF9A8A', Leo:'#FFD47F', Sagittarius:'#FFA870', Cancer:'#A8C8FF', Scorpio:'#B4A8FF', Pisces:'#B8D4FF' };
                   const earthAir = { Taurus:'#A8D8A8', Virgo:'#C8D8A8', Capricorn:'#B8C8A8', Gemini:'#FFE8A8', Libra:'#FFB8D4', Aquarius:'#7FE8D4' };
                   const elementColors = { ...fireWater, ...earthAir };
@@ -1700,7 +1701,7 @@ Respond with ONLY valid JSON:
                     subtitle = `${ev.degree}°${ev.minute}' · ${houseSuffix ? houseSuffix + ' · ' : ''}${daysLabel}`;
                   } else if (ev.type === 'mundane-aspect') {
                     const aspGlyph = aspectGlyphs[ev.aspect] || '';
-                    title = `${ev.planetA} ${ev.aspect} ${ev.planetB}`;
+                    title = `${displayNames[ev.planetA] || ev.planetA} ${ev.aspect} ${displayNames[ev.planetB] || ev.planetB}`;
                     const houseInfo = [ev.houseA && `${ev.houseA}${ev.houseA === 1 ? 'st' : ev.houseA === 2 ? 'nd' : ev.houseA === 3 ? 'rd' : 'th'}`, ev.houseB && `${ev.houseB}${ev.houseB === 1 ? 'st' : ev.houseB === 2 ? 'nd' : ev.houseB === 3 ? 'rd' : 'th'}`].filter(Boolean).join('–');
                     subtitle = `${aspGlyph} ${ev.signA} ${ev.degreeA}°${ev.minuteA}' / ${ev.signB} ${ev.degreeB}°${ev.minuteB}' · ${ev.orb < 0.5 ? 'exact' : `${ev.orb}° orb`}${houseInfo ? ` · ${houseInfo} house` : ''} · ${daysLabel}`;
                   } else {
