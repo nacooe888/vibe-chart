@@ -386,11 +386,11 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
 
   // 4. Mundane transit-to-transit aspects (slow planet pairs)
   const ASPECT_DEFS = [
-    { name: 'conjunction', deg: 0, orb: 3 },
-    { name: 'sextile', deg: 60, orb: 3 },
-    { name: 'square', deg: 90, orb: 3 },
-    { name: 'trine', deg: 120, orb: 3 },
-    { name: 'opposition', deg: 180, orb: 3 },
+    { name: 'conjunction', deg: 0, orb: 2 },
+    { name: 'sextile', deg: 60, orb: 2 },
+    { name: 'square', deg: 90, orb: 2 },
+    { name: 'trine', deg: 120, orb: 2 },
+    { name: 'opposition', deg: 180, orb: 2 },
   ]
   // Only outer planet pairs (Jupiter through Pluto) for meaningful slow aspects
   const MUNDANE_PLANETS = [5, 6, 7, 8, 9] // Jupiter, Saturn, Uranus, Neptune, Pluto
@@ -427,6 +427,8 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
           }
 
           const daysFromNow = Math.round(bestJd - nowJd)
+          // Skip if exact hit was more than 10 days ago
+          if (daysFromNow < -10) break
           events.push({
             type: 'mundane-aspect',
             planetA: nameA,
@@ -444,7 +446,7 @@ function computeSkyEvents(swe, nowJd, cusps, tzOffsetMin) {
             houseA: cusps ? lngToHouse(lngA, cusps) : null,
             houseB: cusps ? lngToHouse(lngB, cusps) : null,
             daysUntil: daysFromNow,
-            lingerDays: 14, // outer planet aspects are slow, linger longer
+            lingerDays: 10,
           })
           break // only show closest aspect per pair
         }
