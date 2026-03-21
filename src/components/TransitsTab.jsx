@@ -1100,7 +1100,9 @@ Respond with ONLY valid JSON:
   }
 
   async function openActivationDetail(act) {
-    setSelectedActivation(act);
+    // Detect perspective: pie chart = one transit hitting many natal points, bar chart = one natal hit by many transits
+    const isTransitView = act.aspects.every(a => a.transit === act.planet);
+    setSelectedActivation({ ...act, isTransitView });
     const cacheKey = `${act.planet}-${act.aspects.map(a => `${a.transit}${a.aspect.name}${a.natal}`).join(',')}`;
     const persisted = activationCache.current[cacheKey] || getCached('activation', cacheKey);
     if (persisted) {
@@ -1112,21 +1114,28 @@ Respond with ONLY valid JSON:
     setActivationBreakdownLoading(true);
     try {
       const skyCtx = getSkyContext(natalChart, transitChart);
-      const aspectList = act.aspects.map(a =>
-        `- Transit ${a.transit} ${a.aspect.name} natal ${act.planet} (${a.orb.toFixed(1)}° orb)`
-      ).join('\n');
-      const prompt = `You are a warm, direct astrologer. Break down how natal ${act.planet} is being activated.
+      const aspectList = isTransitView
+        ? act.aspects.map(a => `- Transit ${act.planet} ${a.aspect.name} natal ${a.natal} (${a.orb.toFixed(1)}° orb)`).join('\n')
+        : act.aspects.map(a => `- Transit ${a.transit} ${a.aspect.name} natal ${act.planet} (${a.orb.toFixed(1)}° orb)`).join('\n');
+      const lineKeys = isTransitView
+        ? act.aspects.map(a => `{"key": "${a.aspect.name} natal ${a.natal}", "line": "1 sentence — what this aspect is doing to natal ${a.natal}"}`)
+        : act.aspects.map(a => `{"key": "${a.transit} ${a.aspect.name}", "line": "1 sentence — what this aspect to natal ${act.planet} is doing"}`);
+      const subject = isTransitView ? `transit ${act.planet}` : `natal ${act.planet}`;
+      const synthQ = isTransitView
+        ? `What is transit ${act.planet} doing across the chart by touching all these natal points at once?`
+        : `What is natal ${act.planet} being asked to do with all these transits hitting it?`;
+      const prompt = `You are a warm, direct astrologer. Break down how ${subject} is being activated.
 
-These transits are all currently hitting natal ${act.planet}:
+${isTransitView ? `Transit ${act.planet} is currently aspecting these natal points:` : `These transits are all currently hitting natal ${act.planet}:`}
 ${aspectList}
 
 ${skyCtx}
 
 Respond with ONLY valid JSON:
 {
-  "lines": [${act.aspects.map(a => `{"transit": "${a.transit} ${a.aspect.name}", "line": "1 sentence — what this specific aspect to natal ${act.planet} is doing"}`).join(', ')}],
-  "synthesis": "2-3 sentences synthesizing what it means to have all of these hitting natal ${act.planet} at once. What is the combined effect? What is natal ${act.planet} being asked to do?",
-  "howToWork": "1-2 sentences. Practical, specific suggestion for working with all this activation on natal ${act.planet} right now."
+  "lines": [${lineKeys.join(', ')}],
+  "synthesis": "2-3 sentences. ${synthQ}",
+  "howToWork": "1-2 sentences. Practical, specific suggestion for working with this activation right now."
 }
 
 IMPORTANT: ONLY reference transits and placements explicitly listed above. Do not invent others.`;
@@ -1196,13 +1205,13 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
 
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <div style={{ fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: act.color, opacity: 0.7, marginBottom: 8 }}>
-              mass activation
+              {act.isTransitView ? 'planetary activation' : 'natal activation'}
             </div>
             <h2 style={{ fontWeight: 300, fontSize: 28, margin: 0, letterSpacing: "0.04em", color: act.color }}>
-              {act.planet}
+              {act.isTransitView ? `transit ${act.planet}` : `natal ${act.planet}`}
             </h2>
             <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
-              activating {act.count} natal points
+              {act.isTransitView ? `activating ${act.count} natal points` : `${act.count} transits active`}
             </div>
           </div>
 
@@ -1236,8 +1245,13 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
           {/* Aspect breakdown */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {aspects.map((a, ai) => {
-              const nColor = PLANET_COLORS[a.transit] || '#C49FFF';
-              const breakdownLine = activationBreakdown?.lines?.find(l => l.transit === `${a.transit} ${a.aspect.name}`);
+              const varyingPlanet = act.isTransitView ? a.natal : a.transit;
+              const nColor = PLANET_COLORS[varyingPlanet] || '#C49FFF';
+              const lineKey = act.isTransitView ? `${a.aspect.name} natal ${a.natal}` : `${a.transit} ${a.aspect.name}`;
+              const breakdownLine = activationBreakdown?.lines?.find(l => (l.key || l.transit) === lineKey);
+              const label = act.isTransitView
+                ? `${a.aspect.name} natal ${a.natal}`
+                : `${a.transit} ${a.aspect.name} natal ${act.planet}`;
               return (
                 <div key={ai} style={{
                   background: `${nColor}08`,
@@ -1250,11 +1264,11 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                   animation: `fadeUp 0.3s ${ai * 0.05}s ease both`,
                 }}>
                   <div style={{ fontSize: 18, color: nColor, width: 24, textAlign: "center", flexShrink: 0, marginTop: 2 }}>
-                    {PLANET_GLYPHS[a.transit] || a.transit}
+                    {PLANET_GLYPHS[varyingPlanet] || varyingPlanet}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", letterSpacing: "0.04em" }}>
-                      {a.transit} {a.aspect.name} natal {act.planet}
+                      {label}
                     </div>
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>
                       {a.orb.toFixed(1)}° orb
