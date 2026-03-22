@@ -1260,7 +1260,7 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitL
 
         {/* Date */}
         <div style={{ textAlign:"center", marginBottom:32, animation:"fadeUp 0.5s ease" }}>
-          <div style={{ fontSize:13, letterSpacing:"0.12em", textTransform:"uppercase", color:"rgba(255,255,255,0.7)", marginBottom:8, fontWeight:400 }}>
+          <div style={{ fontSize:13, letterSpacing:"0.12em", textTransform:"uppercase", color:"rgba(255,255,255,0.85)", marginBottom:8, fontWeight:400 }}>
             {now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
           </div>
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", letterSpacing:"0.04em" }}>

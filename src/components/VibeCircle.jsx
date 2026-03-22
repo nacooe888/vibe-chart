@@ -566,7 +566,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
       <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:500,animation:"fadeIn 0.8s ease"}}>
 
         <div style={{textAlign:"center",marginBottom:26}}>
-          <div style={{fontSize:11,letterSpacing:"0.34em",textTransform:"uppercase",color:"rgba(255,255,255,0.5)",marginBottom:10}}>
+          <div style={{fontSize:11,letterSpacing:"0.34em",textTransform:"uppercase",color:"rgba(255,255,255,0.85)",marginBottom:10}}>
             {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
           </div>
           <h1 style={{fontWeight:300,fontSize:40,margin:0,letterSpacing:"0.06em"}}>vibe chart</h1>

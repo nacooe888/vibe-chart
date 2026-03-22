@@ -1379,7 +1379,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
             <h2 style={{ fontWeight: 300, fontSize: 24, margin: 0, letterSpacing: "0.04em", lineHeight: 1.4, color }}>
               {title}
             </h2>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 10, letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 10, letterSpacing: "0.06em" }}>
               {dateLabel}{isMundane
                 ? ` · ${ev.signA} ${ev.degreeA}°${ev.minuteA}' ${ev.aspect} ${ev.signB} ${ev.degreeB}°${ev.minuteB}'${ev.houseA || ev.houseB ? ` · ${[ev.houseA, ev.houseB].filter(Boolean).join('–')} house` : ''}`
                 : ` · ${ev.sign} ${ev.degree}°${ev.minute}'${ev.house ? ` · ${ev.house}th house` : ''}`}
@@ -1735,7 +1735,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
           {!loading && positions && (
             <div style={{
               fontSize: 12,
-              color: "rgba(255,255,255,0.55)",
+              color: "rgba(255,255,255,0.85)",
               marginTop: 12,
               letterSpacing: "0.12em",
               fontStyle: "italic",
@@ -1864,7 +1864,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                             <div style={{ fontSize: 15, color, letterSpacing: "0.04em" }}>{title}</div>
                             {isNow && <div style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color, opacity: 0.7, background: `${color}15`, padding: "1px 6px", borderRadius: 6 }}>now</div>}
-                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{dateLabel}</div>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}>{dateLabel}</div>
                           </div>
                           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 4, letterSpacing: "0.04em", lineHeight: 1.5 }}>
                             {subtitle}
