@@ -41,7 +41,7 @@ export default function CyclesTab() {
             fontSize: 11,
             letterSpacing: "0.34em",
             textTransform: "uppercase",
-            color: "rgba(255,255,255,0.25)",
+            color: "rgba(255,255,255,0.5)",
             marginBottom: 10,
           }}>
             your rhythms
@@ -64,7 +64,7 @@ export default function CyclesTab() {
           <div style={{
             textAlign: "center",
             padding: "60px 20px",
-            color: "rgba(255,255,255,0.3)",
+            color: "rgba(255,255,255,0.55)",
           }}>
             <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>
               loading your patterns...

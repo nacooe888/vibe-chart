@@ -31,7 +31,7 @@ export default function Onboarding({ onComplete }) {
     width: '100%',
     padding: '14px 18px',
     background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.25)',
     borderRadius: 12,
     color: 'white',
     fontFamily: "'Cormorant Garamond', serif",
@@ -69,7 +69,7 @@ export default function Onboarding({ onComplete }) {
               {label}
             </div>
             {description && (
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>
                 {description}
               </div>
             )}
@@ -313,7 +313,7 @@ export default function Onboarding({ onComplete }) {
               </div>
               <div style={{
                 fontSize: 14,
-                color: 'rgba(255,255,255,0.4)',
+                color: 'rgba(255,255,255,0.65)',
                 marginTop: 20,
                 fontStyle: 'italic',
               }}>
@@ -321,7 +321,7 @@ export default function Onboarding({ onComplete }) {
               </div>
               <div style={{
                 fontSize: 12,
-                color: 'rgba(255,255,255,0.3)',
+                color: 'rgba(255,255,255,0.55)',
                 marginTop: 20,
                 padding: '12px 16px',
                 background: 'rgba(255,255,255,0.03)',
@@ -571,7 +571,7 @@ export default function Onboarding({ onComplete }) {
 
               <div style={{
                 fontSize: 13,
-                color: 'rgba(255,255,255,0.4)',
+                color: 'rgba(255,255,255,0.65)',
                 textAlign: 'center',
                 marginTop: 20,
                 fontStyle: 'italic',
@@ -612,7 +612,7 @@ function StepHeader({ step, total, title, subtitle }) {
         fontSize: 11,
         letterSpacing: '0.28em',
         textTransform: 'uppercase',
-        color: 'rgba(255,255,255,0.35)',
+        color: 'rgba(255,255,255,0.6)',
         marginBottom: 10,
       }}>
         step {step} of {total}
@@ -629,7 +629,7 @@ function StepHeader({ step, total, title, subtitle }) {
       {subtitle && (
         <div style={{
           fontSize: 13,
-          color: 'rgba(255,255,255,0.4)',
+          color: 'rgba(255,255,255,0.65)',
           marginTop: 8,
           fontStyle: 'italic',
         }}>
@@ -670,7 +670,7 @@ function NavButtons({ step, setStep, canProceed, onNext, saving, isLastStep }) {
             flex: 1,
             padding: '14px 24px',
             borderRadius: 99,
-            border: '1px solid rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.25)',
             background: 'transparent',
             color: 'rgba(255,255,255,0.5)',
             fontFamily: "'Cormorant Garamond', serif",
@@ -692,7 +692,7 @@ function NavButtons({ step, setStep, canProceed, onNext, saving, isLastStep }) {
           borderRadius: 99,
           border: '1px solid rgba(196,159,255,0.5)',
           background: canProceed ? 'rgba(196,159,255,0.18)' : 'rgba(255,255,255,0.05)',
-          color: canProceed ? 'white' : 'rgba(255,255,255,0.3)',
+          color: canProceed ? 'white' : 'rgba(255,255,255,0.55)',
           fontFamily: "'Cormorant Garamond', serif",
           fontSize: 13,
           letterSpacing: '0.16em',

@@ -338,7 +338,7 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
       {loading && (
         <div style={{ textAlign:"center", padding:"60px 0" }}>
           <div style={{ fontSize:28, color:transit.color, animation:"spin-slow 4s linear infinite", display:"inline-block" }}>⟡</div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:14, letterSpacing:"0.2em" }}>preparing your ritual</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.65)", marginTop:14, letterSpacing:"0.2em" }}>preparing your ritual</div>
         </div>
       )}
 
@@ -358,7 +358,7 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
                   <div style={{ fontSize:15, color:transit.color, letterSpacing:"0.04em", marginBottom:4, fontWeight:400 }}>{meta.label}</div>
                   <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", lineHeight:1.5 }}>{opt?.description || meta.fallback}</div>
                 </div>
-                <div style={{ fontSize:14, color:"rgba(255,255,255,0.25)" }}>→</div>
+                <div style={{ fontSize:14, color:"rgba(255,255,255,0.5)" }}>→</div>
               </div>
             );
           })}
@@ -380,7 +380,7 @@ function TransitRitualScreen({ vibe, vibeColor, transit, onBack, skyContext, lat
               </div>
             ))}
           </div>
-          <button onClick={() => setSelected(null)} style={{ width:"100%", padding:"14px", borderRadius:12, border:"1px solid rgba(255,255,255,0.12)", background:"transparent", color:"rgba(255,255,255,0.45)", fontFamily:"'Cormorant Garamond',serif", fontSize:13, letterSpacing:"0.18em", textTransform:"uppercase", cursor:"pointer" }}>
+          <button onClick={() => setSelected(null)} style={{ width:"100%", padding:"14px", borderRadius:12, border:"1px solid rgba(255,255,255,0.25)", background:"transparent", color:"rgba(255,255,255,0.45)", fontFamily:"'Cormorant Garamond',serif", fontSize:13, letterSpacing:"0.18em", textTransform:"uppercase", cursor:"pointer" }}>
             ← choose a different path
           </button>
         </div>
@@ -561,12 +561,12 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
 
   return (
     <div style={{ minHeight:"100vh", padding:"48px 28px 80px", fontFamily:"'Cormorant Garamond',serif", color:"white", maxWidth:480, margin:"0 auto" }}>
-      <button onClick={onBack} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, letterSpacing:"0.2em", textTransform:"uppercase", cursor:"pointer", padding:0, marginBottom:40 }}>← back</button>
+      <button onClick={onBack} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.55)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, letterSpacing:"0.2em", textTransform:"uppercase", cursor:"pointer", padding:0, marginBottom:40 }}>← back</button>
 
       <div style={{ textAlign:"center", marginBottom:28, animation:"fadeUp 0.5s ease" }}>
         <div style={{ fontSize:44, color:transit.color, marginBottom:8, fontFamily:"serif", lineHeight:1 }}>{transit.glyph}</div>
         <div style={{ fontSize:15, color:transit.color, letterSpacing:"0.12em", marginBottom:4 }}>{transit.name}</div>
-        <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", letterSpacing:"0.18em", textTransform:"uppercase" }}>{vibe} · {vibeData.intensity}%</div>
+        <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", letterSpacing:"0.18em", textTransform:"uppercase" }}>{vibe} · {vibeData.intensity}%</div>
       </div>
 
       {loading ? (
@@ -635,20 +635,20 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                           {date}
                         </div>
                         {isCurrent && data.arc.currentPhase && !isSelected && (
-                          <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginTop:6, fontStyle:"italic", textAlign:"center", maxWidth:100 }}>
+                          <div style={{ fontSize:10, color:"rgba(255,255,255,0.65)", marginTop:6, fontStyle:"italic", textAlign:"center", maxWidth:100 }}>
                             {data.arc.currentPhase}
                           </div>
                         )}
                       </div>
                       {i < data.arc.dates.length - 1 && (
-                        <span style={{ color:"rgba(255,255,255,0.2)", fontSize:10, marginTop:8 }}>→</span>
+                        <span style={{ color:"rgba(255,255,255,0.4)", fontSize:10, marginTop:8 }}>→</span>
                       )}
                     </div>
                   );
                 })}
               </div>
               {isArc && !journalOpen && (
-                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", textAlign:"center", marginTop:12, fontStyle:"italic" }}>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.65)", textAlign:"center", marginTop:12, fontStyle:"italic" }}>
                   tap a date to journal
                 </div>
               )}
@@ -691,7 +691,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                             background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)",
                             borderRadius:8,
                           }}>
-                            <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:4, letterSpacing:"0.1em" }}>
+                            <div style={{ fontSize:10, color:"rgba(255,255,255,0.65)", marginBottom:4, letterSpacing:"0.1em" }}>
                               {entry.vibe} · {new Date(entry.created_at).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" })}
                             </div>
                             <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.7 }}>
@@ -723,7 +723,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
                       <button
                         onClick={() => setJournalOpen(false)}
-                        style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
+                        style={{ background:"none", border:"none", color:"rgba(255,255,255,0.65)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
                       >close</button>
                       {journalSaved ? (
                         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -810,7 +810,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                   {/* Show previous journal entries for moon transits after save */}
                   {journalSaved && planetCategory === "moon" && previousEntries.length > 1 && (
                     <div style={{ marginBottom:14 }}>
-                      <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:8, letterSpacing:"0.12em" }}>previous entries for this transit</div>
+                      <div style={{ fontSize:11, color:"rgba(255,255,255,0.65)", marginBottom:8, letterSpacing:"0.12em" }}>previous entries for this transit</div>
                       {previousEntries.filter(e => e.entry_type === "journal").slice(0, 3).map((entry, i) => (
                         <div key={entry.id || i} style={{
                           padding:"10px 14px", marginBottom:6,
@@ -845,7 +845,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
                     <button
                       onClick={() => setJournalOpen(false)}
-                      style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
+                      style={{ background:"none", border:"none", color:"rgba(255,255,255,0.65)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
                     >close</button>
                     {journalSaved ? (
                       <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -909,7 +909,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
               {(data.history.pastOccurrences?.length > 0 || data.history.lastOccurrence) ? (
                 <div style={{ display:"flex", justifyContent:"space-around", textAlign:"center" }}>
                   <div>
-                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>last time</div>
+                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.65)", marginBottom:4 }}>last time</div>
                     <div style={{ fontSize:16, color:transit.color }}>
                       {(data.history.pastOccurrences || [data.history.lastOccurrence])[0] || "—"}
                     </div>
@@ -918,7 +918,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                     <>
                       <div style={{ width:1, background:"rgba(255,255,255,0.1)" }} />
                       <div>
-                        <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>next time</div>
+                        <div style={{ fontSize:11, color:"rgba(255,255,255,0.65)", marginBottom:4 }}>next time</div>
                         <div style={{ fontSize:16, color:transit.color }}>{data.history.nextOccurrence}</div>
                       </div>
                     </>
@@ -986,7 +986,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
                         <button
                           onClick={() => setReflectOpen(false)}
-                          style={{ background:"none", border:"none", color:"rgba(255,255,255,0.4)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
+                          style={{ background:"none", border:"none", color:"rgba(255,255,255,0.65)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, cursor:"pointer", padding:0 }}
                         >close</button>
                         {reflectSaved ? (
                           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -1065,7 +1065,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
           )}
 
           <div style={{ textAlign:"center", marginTop:20 }}>
-            <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", letterSpacing:"0.22em" }}>sidereal · fagan-allen · natal chart active</div>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.5)", letterSpacing:"0.22em" }}>sidereal · fagan-allen · natal chart active</div>
           </div>
         </div>
       )}
@@ -1126,7 +1126,7 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
 
   return (
     <div style={{ minHeight:"100vh", padding:"48px 28px 80px", fontFamily:"'Cormorant Garamond',serif", color:"white", maxWidth:480, margin:"0 auto" }}>
-      <button onClick={onBack} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, letterSpacing:"0.2em", textTransform:"uppercase", cursor:"pointer", padding:0, marginBottom:40 }}>← back</button>
+      <button onClick={onBack} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.55)", fontFamily:"'Cormorant Garamond',serif", fontSize:12, letterSpacing:"0.2em", textTransform:"uppercase", cursor:"pointer", padding:0, marginBottom:40 }}>← back</button>
 
       <div style={{ textAlign:"center", marginBottom:28, animation:"fadeUp 0.5s ease" }}>
         <div style={{ fontSize:13, color:vibeColor, letterSpacing:"0.3em", textTransform:"uppercase", marginBottom:8, opacity:0.7 }}>deeper reading</div>
@@ -1169,7 +1169,7 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
                     <div style={{ fontSize:13, color:t.color, letterSpacing:"0.08em", marginBottom:4 }}>{t.name}</div>
                     <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.6 }}>{t.line}</div>
                   </div>
-                  <div style={{ fontSize:14, color:"rgba(255,255,255,0.2)", flexShrink:0 }}>→</div>
+                  <div style={{ fontSize:14, color:"rgba(255,255,255,0.4)", flexShrink:0 }}>→</div>
                 </div>
               ))}
             </div>
@@ -1314,7 +1314,7 @@ function ReportScreen({ onDeepen, natalChart, transitChart, latestVibe, transitL
         {loading && (
           <div style={{ textAlign:"center", padding:"48px 0", animation:"fadeUp 0.4s ease" }}>
             <div style={{ fontSize:26, color:vibeColor, animation:"spin-slow 4s linear infinite", display:"inline-block" }}>✦</div>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.2)", marginTop:12, letterSpacing:"0.22em", fontStyle:"italic" }}>reading the sky</div>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginTop:12, letterSpacing:"0.22em", fontStyle:"italic" }}>reading the sky</div>
           </div>
         )}
 
@@ -1426,7 +1426,7 @@ function RitualScreen({ vibe, vibeColor, onBack, skyContext, latestVibe }) {
       {loading && (
         <div style={{ textAlign:"center", padding:"60px 0" }}>
           <div style={{ fontSize:28, color:vibeColor, animation:"spin-slow 4s linear infinite", display:"inline-block" }}>⟡</div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:14, letterSpacing:"0.2em" }}>preparing your ritual</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.65)", marginTop:14, letterSpacing:"0.2em" }}>preparing your ritual</div>
         </div>
       )}
 
@@ -1446,7 +1446,7 @@ function RitualScreen({ vibe, vibeColor, onBack, skyContext, latestVibe }) {
                   <div style={{ fontSize:15, color:vibeColor, letterSpacing:"0.04em", marginBottom:4, fontWeight:400 }}>{meta.label}</div>
                   <div style={{ fontSize:13, color:"rgba(255,255,255,0.62)", lineHeight:1.5 }}>{opt?.description || meta.fallback}</div>
                 </div>
-                <div style={{ fontSize:14, color:"rgba(255,255,255,0.25)" }}>→</div>
+                <div style={{ fontSize:14, color:"rgba(255,255,255,0.5)" }}>→</div>
               </div>
             );
           })}
@@ -1468,7 +1468,7 @@ function RitualScreen({ vibe, vibeColor, onBack, skyContext, latestVibe }) {
               </div>
             ))}
           </div>
-          <button onClick={() => setSelected(null)} style={{ width:"100%", padding:"14px", borderRadius:12, border:"1px solid rgba(255,255,255,0.12)", background:"transparent", color:"rgba(255,255,255,0.45)", fontFamily:"'Cormorant Garamond',serif", fontSize:13, letterSpacing:"0.18em", textTransform:"uppercase", cursor:"pointer" }}>
+          <button onClick={() => setSelected(null)} style={{ width:"100%", padding:"14px", borderRadius:12, border:"1px solid rgba(255,255,255,0.25)", background:"transparent", color:"rgba(255,255,255,0.45)", fontFamily:"'Cormorant Garamond',serif", fontSize:13, letterSpacing:"0.18em", textTransform:"uppercase", cursor:"pointer" }}>
             ← choose a different path
           </button>
         </div>

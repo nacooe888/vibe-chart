@@ -539,7 +539,7 @@ function TimelinePreview({ windows, onClick }) {
         {ticks.map((t, i) => (
           <div key={i} style={{
             position: "absolute", left: `${t.pos}%`, fontSize: 8,
-            color: "rgba(255,255,255,0.15)", transform: "translateX(-50%)", whiteSpace: "nowrap",
+            color: "rgba(255,255,255,0.3)", transform: "translateX(-50%)", whiteSpace: "nowrap",
           }}>{t.label}</div>
         ))}
       </div>
@@ -577,7 +577,7 @@ function TimelinePreview({ windows, onClick }) {
 
       <div style={{
         textAlign: "center", fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase",
-        color: "rgba(255,255,255,0.2)", marginTop: 8, paddingTop: 6,
+        color: "rgba(255,255,255,0.4)", marginTop: 8, paddingTop: 6,
         borderTop: "1px solid rgba(255,255,255,0.04)",
       }}>
         tap to expand · {windows.length} transits
@@ -619,13 +619,13 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
     }}>
       <div style={{ maxWidth: 700, margin: "0 auto" }}>
         <button onClick={onBack} style={{
-          background: "none", border: "none", color: "rgba(255,255,255,0.4)",
+          background: "none", border: "none", color: "rgba(255,255,255,0.65)",
           fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em",
           cursor: "pointer", marginBottom: 24,
         }}>← back to sky</button>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.34em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.34em", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", marginBottom: 10 }}>
             transit timeline
           </div>
           <h1 style={{ fontWeight: 300, fontSize: 34, margin: 0, letterSpacing: "0.06em" }}>overlap</h1>
@@ -637,15 +637,15 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
           {['month', 'quarter', 'year'].map(s => (
             <button key={s} onClick={() => setScale(s)} style={{
               padding: "6px 18px", borderRadius: 99,
-              border: `1px solid ${scale === s ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)'}`,
+              border: `1px solid ${scale === s ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.06)'}`,
               background: scale === s ? 'rgba(255,255,255,0.1)' : 'transparent',
-              color: scale === s ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)',
+              color: scale === s ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.5)',
               fontFamily: "'Cormorant Garamond',serif", fontSize: 13, letterSpacing: "0.12em",
               cursor: "pointer", transition: "all 0.2s",
             }}>{s}</button>
           ))}
         </div>
-        <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.2)", marginBottom: 20, fontStyle: "italic" }}>
+        <div style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 20, fontStyle: "italic" }}>
           {scaleLabels[scale]} · {visible.length} active
         </div>
 
@@ -661,7 +661,7 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
             {ticks.map((t, i) => (
               <div key={i} style={{
                 position: "absolute", left: `${t.pos}%`, fontSize: 10,
-                color: "rgba(255,255,255,0.3)", letterSpacing: "0.06em",
+                color: "rgba(255,255,255,0.55)", letterSpacing: "0.06em",
                 transform: "translateX(-50%)", whiteSpace: "nowrap",
               }}>{t.label}</div>
             ))}
@@ -676,17 +676,17 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
             }}>
               <div style={{
                 position: "absolute", left: `${nowPct}%`, top: -22, bottom: 0,
-                width: 1, background: "rgba(255,255,255,0.15)", zIndex: 2,
+                width: 1, background: "rgba(255,255,255,0.3)", zIndex: 2,
               }}/>
               <div style={{
                 position: "absolute", left: `${nowPct}%`, top: -24,
                 transform: "translateX(-50%)", fontSize: 8, letterSpacing: "0.12em",
-                color: "rgba(255,255,255,0.4)", textTransform: "uppercase", zIndex: 3,
+                color: "rgba(255,255,255,0.65)", textTransform: "uppercase", zIndex: 3,
               }}>now</div>
             </div>
 
             {visible.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.2)", fontSize: 13 }}>
+              <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.4)", fontSize: 13 }}>
                 no active transits in this range
               </div>
             ) : visible.map((w, ri) => {
@@ -719,7 +719,7 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
                       {w.isReciprocal && <span style={{ fontSize: 9, opacity: 0.5 }}>↔</span>}
                     </div>
                     <div style={{
-                      fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.06em", marginTop: 2,
+                      fontSize: 9, color: "rgba(255,255,255,0.4)", letterSpacing: "0.06em", marginTop: 2,
                     }}>
                       {w.orb.toFixed(1)}° orb{w.isRx ? ' · Rx' : ''}{w.isMultiPass ? ' · arc' : ''}
                     </div>
@@ -753,7 +753,7 @@ function TimelineFull({ windows, onBack, onSelectTransit }) {
         {/* Legend */}
         <div style={{
           marginTop: 20, textAlign: "center", fontSize: 10,
-          color: "rgba(255,255,255,0.2)", letterSpacing: "0.08em", lineHeight: 2.2,
+          color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", lineHeight: 2.2,
         }}>
           line = exact hit · multiple lines = multi-pass arc<br/>
           tap any transit for details
@@ -1199,7 +1199,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
       }}>
         <div style={{ maxWidth: 500, margin: "0 auto" }}>
           <button onClick={() => { setSelectedActivation(null); setActivationBreakdown(null); }}
-            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.65)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
             ← back to sky
           </button>
 
@@ -1210,7 +1210,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
             <h2 style={{ fontWeight: 300, fontSize: 28, margin: 0, letterSpacing: "0.04em", color: act.color }}>
               {act.isTransitView ? `transit ${act.planet}` : `natal ${act.planet}`}
             </h2>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 6 }}>
               {act.isTransitView ? `activating ${act.count} natal points` : `${act.count} transits active`}
             </div>
           </div>
@@ -1230,7 +1230,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                   <text x={s.lx} y={s.ly - 7} textAnchor="middle" fill={s.color} fontSize={18} fontFamily="serif">
                     {PLANET_GLYPHS[s.aspect.natal] || s.aspect.natal}
                   </text>
-                  <text x={s.lx} y={s.ly + 9} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize={9} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">
+                  <text x={s.lx} y={s.ly + 9} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize={9} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">
                     {s.aspect.aspect.glyph} {s.aspect.orb.toFixed(1)}°
                   </text>
                 </g>
@@ -1270,7 +1270,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                     <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", letterSpacing: "0.04em" }}>
                       {label}
                     </div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
                       {a.orb.toFixed(1)}° orb
                     </div>
                     {breakdownLine && (
@@ -1286,7 +1286,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
 
           {/* Synthesis */}
           {activationBreakdownLoading && (
-            <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
+            <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
               <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading these activations...</div>
             </div>
           )}
@@ -1326,7 +1326,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
             </div>
           )}
           {activationBreakdown?.error && (
-            <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
+            <div style={{ textAlign: "center", padding: "20px 0", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
               couldn't load interpretation — try again later
             </div>
           )}
@@ -1370,7 +1370,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
       }}>
         <div style={{ maxWidth: 500, margin: "0 auto" }}>
           <button onClick={() => { setSelectedEvent(null); setEventDetail(null); }}
-            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.65)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
             ← back to sky
           </button>
 
@@ -1379,7 +1379,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
             <h2 style={{ fontWeight: 300, fontSize: 24, margin: 0, letterSpacing: "0.04em", lineHeight: 1.4, color }}>
               {title}
             </h2>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 10, letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 10, letterSpacing: "0.06em" }}>
               {dateLabel}{isMundane
                 ? ` · ${ev.signA} ${ev.degreeA}°${ev.minuteA}' ${ev.aspect} ${ev.signB} ${ev.degreeB}°${ev.minuteB}'${ev.houseA || ev.houseB ? ` · ${[ev.houseA, ev.houseB].filter(Boolean).join('–')} house` : ''}`
                 : ` · ${ev.sign} ${ev.degree}°${ev.minute}'${ev.house ? ` · ${ev.house}th house` : ''}`}
@@ -1387,11 +1387,11 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
           </div>
 
           {eventDetailLoading ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.55)" }}>
               <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading this event...</div>
             </div>
           ) : eventDetail?.error ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
               couldn't load interpretation — try again later
             </div>
           ) : eventDetail ? (
@@ -1463,7 +1463,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
       }}>
         <div style={{ maxWidth: 500, margin: "0 auto" }}>
           <button onClick={() => { setSelectedTransit(null); setTransitDetail(null); setShowTimeline(true); }}
-            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.65)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
             ← back to timeline
           </button>
 
@@ -1472,7 +1472,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
             <h2 style={{ fontWeight: 300, fontSize: 24, margin: 0, letterSpacing: "0.04em", lineHeight: 1.4 }}>
               {w.transit} {w.aspect.name} {w.natal}
             </h2>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 10, letterSpacing: "0.06em" }}>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 10, letterSpacing: "0.06em" }}>
               {w.orb.toFixed(1)}° orb{w.isRx ? ' · retrograde' : ''}{w.isMultiPass ? ' · multi-pass arc' : ''}
             </div>
           </div>
@@ -1542,8 +1542,8 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                   {/* Now marker */}
                   {now >= new Date(rangeStart) && now <= new Date(rangeEnd) && (
                     <>
-                      <line x1={nowX} y1={8} x2={nowX} y2={baseY + 4} stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="3,3" />
-                      <text x={nowX} y={baseY + 14} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="7" fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em">NOW</text>
+                      <line x1={nowX} y1={8} x2={nowX} y2={baseY + 4} stroke="rgba(255,255,255,0.4)" strokeWidth="1" strokeDasharray="3,3" />
+                      <text x={nowX} y={baseY + 14} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize="7" fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em">NOW</text>
                     </>
                   )}
 
@@ -1565,7 +1565,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                           {dateStr}
                         </text>
                         {/* Pass label */}
-                        <text x={x} y={baseY + 24} textAnchor="middle" fill="rgba(255,255,255,0.2)" fontSize="7" fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">
+                        <text x={x} y={baseY + 24} textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="7" fontFamily="'Cormorant Garamond',serif" letterSpacing="0.06em">
                           {passLabels[i]}
                         </text>
                       </g>
@@ -1577,11 +1577,11 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
           })()}
 
           {transitDetailLoading ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.55)" }}>
               <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading this transit...</div>
             </div>
           ) : transitDetail?.error ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
               couldn't load detail — try again later
             </div>
           ) : transitDetail ? (
@@ -1633,7 +1633,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
       }}>
         <div style={{ maxWidth: 500, margin: "0 auto" }}>
           <button onClick={() => { setSelectedPattern(null); setPatternDetail(null); }}
-            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
+            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.65)", fontFamily: "'Cormorant Garamond',serif", fontSize: 14, letterSpacing: "0.1em", cursor: "pointer", marginBottom: 24 }}>
             ← back to sky
           </button>
 
@@ -1652,17 +1652,17 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
             <h2 style={{ fontWeight: 300, fontSize: 26, margin: 0, letterSpacing: "0.04em", lineHeight: 1.4 }}>
               {p.title}
             </h2>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginTop: 10, letterSpacing: "0.06em", lineHeight: 1.7 }}>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 10, letterSpacing: "0.06em", lineHeight: 1.7 }}>
               {p.subtitle}
             </div>
           </div>
 
           {patternLoading ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)" }}>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.55)" }}>
               <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>reading this pattern...</div>
             </div>
           ) : patternDetail?.error ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.3)", fontSize: 14 }}>
+            <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
               couldn't load detail — try again later
             </div>
           ) : patternDetail ? (
@@ -1715,7 +1715,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
             fontSize: 11,
             letterSpacing: "0.34em",
             textTransform: "uppercase",
-            color: "rgba(255,255,255,0.25)",
+            color: "rgba(255,255,255,0.5)",
             marginBottom: 10,
           }}>
             today's sky
@@ -1735,7 +1735,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
           {!loading && positions && (
             <div style={{
               fontSize: 12,
-              color: "rgba(255,255,255,0.3)",
+              color: "rgba(255,255,255,0.55)",
               marginTop: 12,
               letterSpacing: "0.12em",
               fontStyle: "italic",
@@ -1749,7 +1749,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
           <div style={{
             textAlign: "center",
             padding: "60px 20px",
-            color: "rgba(255,255,255,0.3)",
+            color: "rgba(255,255,255,0.55)",
           }}>
             <div style={{ animation: "pulse 1.5s ease-in-out infinite" }}>
               reading the sky...
@@ -1759,7 +1759,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
           <div style={{
             textAlign: "center",
             padding: "60px 20px",
-            color: "rgba(255,255,255,0.3)",
+            color: "rgba(255,255,255,0.55)",
             fontSize: 14,
             lineHeight: 1.8,
           }}>
@@ -1772,7 +1772,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
               <>
                 <div style={{
                   fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
+                  color: "rgba(255,255,255,0.4)", textAlign: "center", marginBottom: 4,
                 }}>
                   sky events
                 </div>
@@ -1864,9 +1864,9 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                             <div style={{ fontSize: 15, color, letterSpacing: "0.04em" }}>{title}</div>
                             {isNow && <div style={{ fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase", color, opacity: 0.7, background: `${color}15`, padding: "1px 6px", borderRadius: 6 }}>now</div>}
-                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>{dateLabel}</div>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{dateLabel}</div>
                           </div>
-                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 4, letterSpacing: "0.04em", lineHeight: 1.5 }}>
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 4, letterSpacing: "0.04em", lineHeight: 1.5 }}>
                             {subtitle}
                           </div>
                         </div>
@@ -1911,7 +1911,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                 <>
                   <div style={{
                     fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
+                    color: "rgba(255,255,255,0.4)", textAlign: "center", marginBottom: 4,
                   }}>planetary activation</div>
                   <div style={{
                     background: "rgba(255,255,255,0.02)",
@@ -1929,7 +1929,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                                 <text x={s.lx} y={s.ly - 5} textAnchor="middle" fill={s.color} fontSize={20} fontFamily="serif" opacity={0.9}>
                                   {s.glyph}
                                 </text>
-                                <text x={s.lx} y={s.ly + 11} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={9} fontFamily="'Cormorant Garamond',serif">
+                                <text x={s.lx} y={s.ly + 11} textAnchor="middle" fill="rgba(255,255,255,0.55)" fontSize={9} fontFamily="'Cormorant Garamond',serif">
                                   {s.count} pts
                                 </text>
                               </>
@@ -1937,14 +1937,14 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                           </g>
                         ))}
                         <circle cx={cx} cy={cy} r={20} fill="#050510" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
-                        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.3)" fontSize={8} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em">
+                        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.55)" fontSize={8} fontFamily="'Cormorant Garamond',serif" letterSpacing="0.1em">
                           sky
                         </text>
                       </svg>
                     </div>
                     <div style={{
                       textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
-                      color: "rgba(255,255,255,0.2)", marginTop: 6,
+                      color: "rgba(255,255,255,0.4)", marginTop: 6,
                     }}>tap a planet for details</div>
                   </div>
                 </>
@@ -1959,7 +1959,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                 <>
                   <div style={{
                     fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.2)", textAlign: "center", marginTop: 6, marginBottom: 4,
+                    color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: 6, marginBottom: 4,
                   }}>natal activation</div>
                   <div style={{
                     background: "rgba(255,255,255,0.02)",
@@ -1978,7 +1978,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                               flex: 1, maxWidth: 36,
                             }}>
                             {/* Count label */}
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
                               {n.count}
                             </div>
                             {/* Vertical bar */}
@@ -2006,7 +2006,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                     </div>
                     <div style={{
                       textAlign: "center", fontSize: 9, letterSpacing: "0.12em",
-                      color: "rgba(255,255,255,0.12)", marginTop: 8,
+                      color: "rgba(255,255,255,0.25)", marginTop: 8,
                     }}>tap a bar for details</div>
                   </div>
                   <div style={{ width: 36, height: 1, background: "rgba(255,255,255,0.06)", margin: "10px auto 6px" }}/>
@@ -2019,7 +2019,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
               <>
                 <div style={{
                   fontSize: 10, letterSpacing: "0.28em", textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.2)", textAlign: "center", marginBottom: 4,
+                  color: "rgba(255,255,255,0.4)", textAlign: "center", marginBottom: 4,
                 }}>reciprocal transits</div>
                 {patterns.filter(p => p.type === 'reciprocal').map((p, i) => (
                   <div key={i} onClick={() => openPatternDetail(p)} style={{
@@ -2042,7 +2042,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                         </div>
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", letterSpacing: "0.06em", lineHeight: 1.7, paddingLeft: 44 }}>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: "0.06em", lineHeight: 1.7, paddingLeft: 44 }}>
                       {p.subtitle}
                     </div>
                   </div>
@@ -2060,7 +2060,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                   fontSize: 10,
                   letterSpacing: "0.28em",
                   textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.2)",
+                  color: "rgba(255,255,255,0.4)",
                   textAlign: "center",
                   marginTop: 10,
                   marginBottom: 8,
@@ -2125,7 +2125,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                         </div>
                         <div style={{
                           fontSize: 14,
-                          color: "rgba(255,255,255,0.35)",
+                          color: "rgba(255,255,255,0.6)",
                           letterSpacing: "0.04em",
                         }}>
                           {pos.degree}°{pos.minute ? pos.minute + "'" : ''} {pos.sign}
@@ -2154,7 +2154,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                       </div>
                       <div style={{
                         fontSize: 11,
-                        color: "rgba(255,255,255,0.2)",
+                        color: "rgba(255,255,255,0.4)",
                         letterSpacing: "0.1em",
                       }}>
                         {SPEED_LABELS[planet]}
@@ -2190,7 +2190,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                             {a.status && (
                               <span style={{
                                 fontSize: 10,
-                                color: a.status === 'exact' ? color : 'rgba(255,255,255,0.3)',
+                                color: a.status === 'exact' ? color : 'rgba(255,255,255,0.55)',
                                 letterSpacing: "0.08em",
                                 fontStyle: "italic",
                               }}>
@@ -2198,7 +2198,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                               </span>
                             )}
                             <span style={{
-                              color: a.orb < 1 ? color : "rgba(255,255,255,0.25)",
+                              color: a.orb < 1 ? color : "rgba(255,255,255,0.5)",
                               fontSize: 11,
                               marginLeft: "auto",
                             }}>
@@ -2223,7 +2223,7 @@ IMPORTANT: ONLY reference transits and placements explicitly listed above. Do no
                               marginTop: 3,
                               fontSize: 10,
                               letterSpacing: "0.1em",
-                              color: a.arc.type === 'multi-pass' ? '#FF9090' : 'rgba(255,255,255,0.25)',
+                              color: a.arc.type === 'multi-pass' ? '#FF9090' : 'rgba(255,255,255,0.5)',
                               display: "flex",
                               alignItems: "center",
                               gap: 6,

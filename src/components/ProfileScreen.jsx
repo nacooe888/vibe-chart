@@ -99,7 +99,7 @@ export default function ProfileScreen({ onClose }) {
     width: '100%',
     padding: '12px 16px',
     background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.25)',
     borderRadius: 10,
     color: 'white',
     fontFamily: "'Cormorant Garamond', serif",
@@ -112,14 +112,14 @@ export default function ProfileScreen({ onClose }) {
     fontSize: 10,
     letterSpacing: '0.2em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.65)',
     marginBottom: 6,
   }
 
   const infoRow = (label, value) => (
     <div style={{ marginBottom: 16 }}>
       <div style={labelStyle}>{label}</div>
-      <div style={{ fontSize: 17, color: value ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.25)', fontStyle: value ? 'normal' : 'italic' }}>
+      <div style={{ fontSize: 17, color: value ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)', fontStyle: value ? 'normal' : 'italic' }}>
         {value || 'not set'}
       </div>
     </div>
@@ -284,11 +284,11 @@ export default function ProfileScreen({ onClose }) {
             {SIGNS.map((_, i) => {
               const angle = lonToAngle(i * 30)
               const [x1,y1] = pt(angle, RI), [x2,y2] = pt(angle, RO)
-              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.18)" strokeWidth={0.5}/>
+              return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.35)" strokeWidth={0.5}/>
             })}
 
             {/* Outer ring border */}
-            <circle cx={cx} cy={cy} r={RO} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={0.5}/>
+            <circle cx={cx} cy={cy} r={RO} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={0.5}/>
 
             {/* Zodiac glyphs — counter-rotated to stay upright */}
             {SIGNS.map((sign, i) => {
@@ -394,7 +394,7 @@ export default function ProfileScreen({ onClose }) {
             style={{
               background: 'none',
               border: 'none',
-              color: 'rgba(255,255,255,0.4)',
+              color: 'rgba(255,255,255,0.65)',
               fontSize: 12,
               letterSpacing: '0.2em',
               textTransform: 'uppercase',
@@ -410,7 +410,7 @@ export default function ProfileScreen({ onClose }) {
               onClick={() => setEditing(true)}
               style={{
                 background: 'none',
-                border: '1px solid rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
                 borderRadius: 8,
                 color: 'rgba(255,255,255,0.5)',
                 fontSize: 11,
@@ -428,7 +428,7 @@ export default function ProfileScreen({ onClose }) {
 
         {/* Title */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 11, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 10 }}>
             profile
           </div>
           <div style={{ fontSize: 30, fontWeight: 300, letterSpacing: '0.04em' }}>
@@ -437,7 +437,7 @@ export default function ProfileScreen({ onClose }) {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>
+          <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>
             loading...
           </div>
         ) : editing ? (
@@ -508,7 +508,7 @@ export default function ProfileScreen({ onClose }) {
                   flex: 1,
                   padding: '14px',
                   borderRadius: 99,
-                  border: '1px solid rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.25)',
                   background: 'transparent',
                   color: 'rgba(255,255,255,0.5)',
                   fontFamily: "'Cormorant Garamond', serif",
@@ -551,7 +551,7 @@ export default function ProfileScreen({ onClose }) {
               padding: '24px 20px',
               marginBottom: 20,
             }}>
-              <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 16 }}>birth info</div>
+              <div style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 16 }}>birth info</div>
               {infoRow('name', profile?.name)}
               {infoRow('birth date', formatDate(profile?.birth_date))}
               {infoRow('birth time', profile?.birth_time_unknown ? 'unknown' : formatTime(profile?.birth_time))}
@@ -601,7 +601,7 @@ export default function ProfileScreen({ onClose }) {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'rgba(255,255,255,0.25)',
+                    color: 'rgba(255,255,255,0.5)',
                     fontFamily: "'Cormorant Garamond', serif",
                     fontSize: 11,
                     fontStyle: 'italic',
@@ -622,7 +622,7 @@ export default function ProfileScreen({ onClose }) {
                       disabled={deleting}
                       style={{
                         background: 'none',
-                        border: '1px solid rgba(255,255,255,0.15)',
+                        border: '1px solid rgba(255,255,255,0.3)',
                         borderRadius: 99,
                         color: 'rgba(255,255,255,0.5)',
                         fontFamily: "'Cormorant Garamond', serif",

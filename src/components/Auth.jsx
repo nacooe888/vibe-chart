@@ -87,7 +87,7 @@ export default function Auth() {
           <div style={{
             fontSize: 13,
             letterSpacing: '0.2em',
-            color: 'rgba(255,255,255,0.3)',
+            color: 'rgba(255,255,255,0.55)',
             marginTop: 12,
             textTransform: 'uppercase',
           }}>
@@ -206,7 +206,7 @@ export default function Auth() {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'rgba(255,255,255,0.35)',
+                    color: 'rgba(255,255,255,0.6)',
                     fontSize: 12,
                     fontStyle: 'italic',
                     cursor: 'pointer',
@@ -226,7 +226,7 @@ export default function Auth() {
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'rgba(255,255,255,0.35)',
+                    color: 'rgba(255,255,255,0.6)',
                     fontSize: 12,
                     fontStyle: 'italic',
                     cursor: 'pointer',
@@ -244,7 +244,7 @@ export default function Auth() {
           textAlign: 'center',
           marginTop: 24,
           fontSize: 12,
-          color: 'rgba(255,255,255,0.2)',
+          color: 'rgba(255,255,255,0.4)',
           fontStyle: 'italic',
         }}>
           your transmissions are private

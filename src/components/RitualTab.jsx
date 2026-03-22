@@ -54,7 +54,7 @@ export default function RitualTab() {
           border: "1px solid rgba(127, 255, 212, 0.15)",
           borderRadius: 12,
           fontSize: 12,
-          color: "rgba(255,255,255,0.35)",
+          color: "rgba(255,255,255,0.6)",
           letterSpacing: "0.1em",
         }}>
           coming soon

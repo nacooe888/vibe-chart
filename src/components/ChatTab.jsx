@@ -148,7 +148,7 @@ export default function ChatTab({ initialQuestion, onQuestionConsumed }) {
 
       {/* Header */}
       <div style={{ padding: "48px 24px 16px", textAlign: "center" }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", marginBottom: 8, color: "rgba(255,255,255,0.25)" }}>
+        <div style={{ fontSize: 11, letterSpacing: "0.24em", textTransform: "uppercase", marginBottom: 8, color: "rgba(255,255,255,0.5)" }}>
           {!chartsReady
             ? "loading your chart..."
             : natalChart && transitChart
@@ -167,7 +167,7 @@ export default function ChatTab({ initialQuestion, onQuestionConsumed }) {
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
         {messages.length === 0 && (
           <div style={{ padding: "24px 0 8px" }}>
-            <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontStyle: "italic", fontSize: 14, lineHeight: 1.8, marginBottom: 24 }}>
+            <div style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", fontStyle: "italic", fontSize: 14, lineHeight: 1.8, marginBottom: 24 }}>
               ask anything — what's active in your chart,<br />
               what a transit means, what's coming
             </div>
@@ -256,7 +256,7 @@ export default function ChatTab({ initialQuestion, onQuestionConsumed }) {
           gap: 8,
           alignItems: "flex-end",
           background: "rgba(255,255,255,0.04)",
-          border: `1px solid ${input ? ACCENT + "55" : "rgba(255,255,255,0.12)"}`,
+          border: `1px solid ${input ? ACCENT + "55" : "rgba(255,255,255,0.25)"}`,
           borderRadius: 18,
           padding: "8px 8px 8px 16px",
           transition: "border-color 0.2s",
@@ -297,7 +297,7 @@ export default function ChatTab({ initialQuestion, onQuestionConsumed }) {
               borderRadius: "50%",
               border: "none",
               background: input.trim() && !loading ? ACCENT + "33" : "rgba(255,255,255,0.05)",
-              color: input.trim() && !loading ? ACCENT : "rgba(255,255,255,0.2)",
+              color: input.trim() && !loading ? ACCENT : "rgba(255,255,255,0.4)",
               fontSize: 16,
               cursor: input.trim() && !loading ? "pointer" : "default",
               display: "flex",
@@ -310,7 +310,7 @@ export default function ChatTab({ initialQuestion, onQuestionConsumed }) {
             ↑
           </button>
         </div>
-        <div style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.15)", marginTop: 6, letterSpacing: "0.1em" }}>
+        <div style={{ textAlign: "center", fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 6, letterSpacing: "0.1em" }}>
           enter to send · shift+enter for new line
         </div>
       </div>
