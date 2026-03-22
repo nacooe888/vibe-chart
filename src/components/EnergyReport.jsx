@@ -572,7 +572,7 @@ function TransitDeepScreen({ vibe, vibeColor, transit, onBack, onRitual, onChat,
       {loading ? (
         <div style={{ textAlign:"center", padding:"60px 0" }}>
           <div style={{ fontSize:28, color:transit.color, animation:"spin-slow 4s linear infinite", display:"inline-block" }}>✦</div>
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.22)", marginTop:14, letterSpacing:"0.22em", fontStyle:"italic" }}>going deeper</div>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", marginTop:14, letterSpacing:"0.22em", fontStyle:"italic" }}>going deeper</div>
         </div>
       ) : (
         <div style={{ animation:"fadeUp 0.6s ease" }}>
@@ -1136,7 +1136,7 @@ function DeepScreen({ vibe, vibeColor, onBack, onTransit, onRitual, skyContext, 
       {paraLoading ? (
         <div style={{ textAlign:"center", padding:"60px 0" }}>
           <div style={{ fontSize:28, color:vibeColor, animation:"spin-slow 4s linear infinite", display:"inline-block" }}>✦</div>
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.22)", marginTop:14, letterSpacing:"0.22em", fontStyle:"italic" }}>reading your chart</div>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", marginTop:14, letterSpacing:"0.22em", fontStyle:"italic" }}>reading your chart</div>
         </div>
       ) : (
         <div style={{ animation:"fadeUp 0.6s ease" }}>

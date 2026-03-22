@@ -133,7 +133,7 @@ function quantifyPoints(pts) {
 function btnStyle(color) {
   const base = { padding:"9px 24px", borderRadius:99, fontFamily:"'Cormorant Garamond',serif", fontSize:13, letterSpacing:"0.16em", textTransform:"uppercase", cursor:"pointer", transition:"all 0.25s" };
   if (color) return { ...base, border:`1px solid ${color}88`, background:`linear-gradient(135deg, ${color}55 0%, ${color}35 100%)`, color:"white", boxShadow:`0 0 20px ${color}44, inset 0 1px 0 rgba(255,255,255,0.3)`, textShadow:`0 0 10px ${color}` };
-  return { ...base, border:"1px solid rgba(255,255,255,0.09)", background:"transparent", color:"rgba(255,255,255,0.32)" };
+  return { ...base, border:"1px solid rgba(255,255,255,0.09)", background:"transparent", color:"rgba(255,255,255,0.55)" };
 }
 
 function Stars() {
@@ -158,7 +158,7 @@ function PatternsView({ logs }) {
   const comp = valid.filter(l=>l.centroid).map(l=>[l.centroid.x,l.centroid.y]);
 
   const card = (ch,st={}) => <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:16,padding:"20px 22px",marginBottom:14,...st}}>{ch}</div>;
-  const lbl = t => <div style={{fontSize:10,letterSpacing:"0.22em",textTransform:"uppercase",color:"rgba(255,255,255,0.28)",marginBottom:10}}>{t}</div>;
+  const lbl = t => <div style={{fontSize:10,letterSpacing:"0.22em",textTransform:"uppercase",color:"rgba(255,255,255,0.5)",marginBottom:10}}>{t}</div>;
 
   if (valid.length === 0) return (
     <div style={{textAlign:"center",padding:"60px 20px",color:"rgba(255,255,255,0.55)",fontStyle:"italic",fontSize:16}}>
@@ -172,7 +172,7 @@ function PatternsView({ logs }) {
         {[{label:"entries",value:valid.length},{label:"avg intensity",value:`${avgI}%`},{label:"avg spread",value:`${avgS}%`}].map(s=>(
           <div key={s.label} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"16px 10px",textAlign:"center"}}>
             <div style={{fontSize:26,fontWeight:300,color:topC,fontFamily:"'Cormorant Garamond',serif"}}>{s.value}</div>
-            <div style={{fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",color:"rgba(255,255,255,0.28)",marginTop:4}}>{s.label}</div>
+            <div style={{fontSize:9,letterSpacing:"0.18em",textTransform:"uppercase",color:"rgba(255,255,255,0.5)",marginTop:4}}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -217,7 +217,7 @@ function PatternsView({ logs }) {
             const h=Math.max(4,Math.round((l.intensity/100)*60));
             return <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
               <div style={{width:"100%",height:h,borderRadius:"3px 3px 0 0",background:col,opacity:0.75,boxShadow:`0 0 6px ${col}66`}}/>
-              <div style={{fontSize:7,color:"rgba(255,255,255,0.4)",writingMode:"vertical-rl",transform:"rotate(180deg)"}}>
+              <div style={{fontSize:7,color:"rgba(255,255,255,0.55)",writingMode:"vertical-rl",transform:"rotate(180deg)"}}>
                 {new Date(l.created_at).toLocaleDateString("en-US",{month:"numeric",day:"numeric"})}
               </div>
             </div>;
@@ -259,7 +259,7 @@ function PatternsView({ logs }) {
           const aPct = Math.round((aC/tot)*100);
           const bPct = 100 - aPct;
           return <div key={a} style={{marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,0.45)",marginBottom:5}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"rgba(255,255,255,0.6)",marginBottom:5}}>
               <span style={{fontFamily:"'Cormorant Garamond',serif",color:ac}}>{a} <span style={{color:"rgba(255,255,255,0.55)"}}>{aPct}%</span></span>
               <span style={{fontFamily:"'Cormorant Garamond',serif",color:bc}}><span style={{color:"rgba(255,255,255,0.55)"}}>{bPct}%</span> {b}</span>
             </div>
@@ -570,7 +570,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
             {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
           </div>
           <h1 style={{fontWeight:300,fontSize:40,margin:0,letterSpacing:"0.06em"}}>vibe chart</h1>
-          {logs.length>0&&<div style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:10,letterSpacing:"0.15em"}}>{logs.length} {logs.length===1?"entry":"entries"} recorded</div>}
+          {logs.length>0&&<div style={{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:10,letterSpacing:"0.15em"}}>{logs.length} {logs.length===1?"entry":"entries"} recorded</div>}
           <div style={{width:36,height:1,background:"rgba(255,255,255,0.1)",margin:"15px auto 0"}}/>
         </div>
 
@@ -590,12 +590,12 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           <div style={{display:"flex",justifyContent:"center",marginBottom:18}}>
             <div style={{display:"flex",background:"rgba(255,255,255,0.04)",borderRadius:99,padding:3,border:"1px solid rgba(255,255,255,0.07)"}}>
               {["plot","draw"].map(m=>(
-                <button key={m} onClick={()=>{setMode(m);clearAll();}} style={{padding:"8px 30px",borderRadius:99,border:"none",background:mode===m?`${auraColor}40`:"transparent",color:mode===m?"white":"rgba(255,255,255,0.32)",fontFamily:"'Cormorant Garamond',serif",fontSize:13,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer",transition:"all 0.25s",boxShadow:mode===m?`0 0 18px ${auraColor}35`:"none"}}>{m}</button>
+                <button key={m} onClick={()=>{setMode(m);clearAll();}} style={{padding:"8px 30px",borderRadius:99,border:"none",background:mode===m?`${auraColor}40`:"transparent",color:mode===m?"white":"rgba(255,255,255,0.55)",fontFamily:"'Cormorant Garamond',serif",fontSize:13,letterSpacing:"0.18em",textTransform:"uppercase",cursor:"pointer",transition:"all 0.25s",boxShadow:mode===m?`0 0 18px ${auraColor}35`:"none"}}>{m}</button>
               ))}
             </div>
           </div>
 
-          <div style={{textAlign:"center",fontSize:12,color:"rgba(255,255,255,0.22)",letterSpacing:"0.1em",fontStyle:"italic",marginBottom:10,minHeight:18}}>
+          <div style={{textAlign:"center",fontSize:12,color:"rgba(255,255,255,0.6)",letterSpacing:"0.1em",fontStyle:"italic",marginBottom:10,minHeight:18}}>
             {mode==="plot" ? plotPoints.length===0?"tap inside the circle to place points":`${plotPoints.length} point${plotPoints.length===1?"":"s"} placed · tap more or save` : "drag inside the circle to draw your vibe"}
           </div>
 
@@ -692,7 +692,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           {logs.length>0&&(
             <div style={{marginTop:44}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-                <div style={{fontSize:11,letterSpacing:"0.22em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)"}}>past transmissions</div>
+                <div style={{fontSize:11,letterSpacing:"0.22em",textTransform:"uppercase",color:"rgba(255,255,255,0.55)"}}>past transmissions</div>
                 <button onClick={()=>setShowExport(true)} style={{...btnStyle(),fontSize:11,padding:"6px 14px",letterSpacing:"0.12em"}}>↓ export</button>
               </div>
               <div style={{display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
@@ -708,7 +708,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
                         <circle cx={0} cy={0} r={4.5} fill="#050510" stroke="rgba(255,255,255,0.08)" strokeWidth={0.5}/>
                         <circle cx={0} cy={0} r={1.5} fill="rgba(255,255,255,0.65)"/>
                       </svg>
-                      <div style={{fontSize:10,color:"rgba(255,255,255,0.4)",marginTop:5}}>{new Date(log.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
+                      <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",marginTop:5}}>{new Date(log.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
                       {log.dominant_vibe&&<div style={{fontSize:9,color:c,marginTop:2,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>{log.dominant_vibe} · {log.intensity}%</div>}
                     </div>
                   );
@@ -785,7 +785,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
                     <div style={{fontSize:14,color:"rgba(255,255,255,0.85)",marginBottom:4,fontFamily:"'Cormorant Garamond',serif"}}>
                       Tap to plot
                     </div>
-                    <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>
                       Touch anywhere on the wheel to mark where your energy is right now
                     </div>
                   </div>
@@ -804,7 +804,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
                     <div style={{fontSize:14,color:"rgba(255,255,255,0.85)",marginBottom:4,fontFamily:"'Cormorant Garamond',serif"}}>
                       Draw to express
                     </div>
-                    <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>
                       Switch to draw mode for a more fluid, gestural vibe entry
                     </div>
                   </div>
@@ -823,7 +823,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
                     <div style={{fontSize:14,color:"rgba(255,255,255,0.85)",marginBottom:4,fontFamily:"'Cormorant Garamond',serif"}}>
                       Colors are vibes
                     </div>
-                    <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.6)"}}>
                       Each region represents a different emotional quality — from Expanded to Contracted, Energized to Depleted
                     </div>
                   </div>
