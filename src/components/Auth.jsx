@@ -83,7 +83,7 @@ export default function Auth() {
             margin: 0,
             letterSpacing: '0.06em',
             color: 'white',
-          }}>vibe map</h1>
+          }}>vibe chart</h1>
           <div style={{
             fontSize: 13,
             letterSpacing: '0.2em',

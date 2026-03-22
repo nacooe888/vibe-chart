@@ -226,7 +226,7 @@ function PatternsView({ logs }) {
       </>)}
 
       {comp.length > 1 && card(<>
-        {lbl("composite vibe map · all sessions")}
+        {lbl("composite vibe chart · all sessions")}
         <div style={{display:"flex",justifyContent:"center"}}>
           <svg viewBox={`${-R-10} ${-R-10} ${(R+10)*2} ${(R+10)*2}`} style={{width:200,height:200}}>
             <circle cx={0} cy={0} r={R} fill="#090120" stroke="rgba(255,255,255,0.07)" strokeWidth={0.8}/>
@@ -569,7 +569,7 @@ export default function VibeCircle({ showSignOut = true, onSave }) {
           <div style={{fontSize:11,letterSpacing:"0.34em",textTransform:"uppercase",color:"rgba(255,255,255,0.25)",marginBottom:10}}>
             {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
           </div>
-          <h1 style={{fontWeight:300,fontSize:40,margin:0,letterSpacing:"0.06em"}}>vibe map</h1>
+          <h1 style={{fontWeight:300,fontSize:40,margin:0,letterSpacing:"0.06em"}}>vibe chart</h1>
           {logs.length>0&&<div style={{fontSize:11,color:"rgba(255,255,255,0.18)",marginTop:10,letterSpacing:"0.15em"}}>{logs.length} {logs.length===1?"entry":"entries"} recorded</div>}
           <div style={{width:36,height:1,background:"rgba(255,255,255,0.1)",margin:"15px auto 0"}}/>
         </div>
