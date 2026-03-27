@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { VibeProvider } from './contexts/VibeContext'
 import Auth from './components/Auth'
@@ -332,6 +333,7 @@ export default function App() {
     <AuthProvider>
       <VibeProvider>
         <AppContent />
+        <Analytics />
       </VibeProvider>
     </AuthProvider>
   )
