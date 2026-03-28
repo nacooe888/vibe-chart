@@ -1,32 +1,33 @@
-# Vibe Map
+# Vibe Chart
 
-A circular mood-tracking interface for mapping your emotional landscape.
+Daily mood-tracking app with a 12-zone vibe wheel, AI-powered energy reports, and sidereal astrological transit readings.
 
 ## Setup
 
-### 1. Install Node.js
-
-Download and install Node.js from [nodejs.org](https://nodejs.org/) (LTS version recommended).
-
-### 2. Install Dependencies
+### 1. Install Dependencies
 
 ```bash
 cd vibe-chart
 npm install
 ```
 
-### 3. Set Up Supabase Database
+### 2. Set Up Supabase Database
 
 1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
 2. Open the SQL Editor
 3. Copy and paste the contents of `supabase/schema.sql`
-4. Click "Run" to create the tables
+4. Click "Run" to create the tables (`vibe_logs`, `user_charts`, `user_profiles`)
 
-### 4. Configure Environment (for local dev)
+### 3. Configure Environment (for local dev)
 
-The `.env.local` file is already configured with your Supabase credentials.
+Create `.env.local` with:
 
-### 5. Run Development Server
+```
+VITE_SUPABASE_URL=your-supabase-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
@@ -36,24 +37,17 @@ Visit `http://localhost:5173`
 
 ## Deploying to Vercel
 
-### 1. Push to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/nacooe888/vibe-chart.git
-git push -u origin main
-```
-
-### 2. Connect to Vercel
-
-1. Go to [Vercel](https://vercel.com)
-2. Import your GitHub repository
+1. Push to GitHub
+2. Import the repo in [Vercel](https://vercel.com)
 3. Add environment variables:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-   - `ANTHROPIC_API_KEY` (for AI-generated readings)
+   - `SUPABASE_URL` (same value, used by serverless functions)
+   - `SUPABASE_SERVICE_ROLE_KEY` (from Supabase dashboard)
+   - `ANTHROPIC_API_KEY`
+   - `ASTROAPP_API_KEY`
+   - `ASTROAPP_EMAIL`
+   - `ASTROAPP_PASSWORD`
 4. Deploy
 
 ## Tech Stack
@@ -62,3 +56,6 @@ git push -u origin main
 - Supabase (Auth + Database)
 - Vercel (Hosting + Serverless Functions)
 - Anthropic Claude API (AI readings)
+- Swiss Ephemeris WASM (planetary calculations)
+- AstroApp API (natal chart generation)
+- Sidereal Fagan-Allen ayanamsa
