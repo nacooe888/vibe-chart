@@ -94,7 +94,7 @@ Respond with ONLY a valid JSON array, no markdown, no wrapper object:
   }
 ]
 
-IMPORTANT: Only include transits explicitly listed in the TRANSIT-TO-NATAL ASPECTS section above. Do NOT invent aspects. If none listed, return []. Include 3-4 with the tightest orbs (under 5° only).`;
+IMPORTANT: Use the FIRST 3-4 transits from the TRANSIT-TO-NATAL ASPECTS list above — they are already ranked by significance (outer planet transits to personal natal points first). Do NOT reorder, skip, or invent aspects. If none listed, return [].`;
 }
 
 // ── Transit Deep Reading (full single-transit reading) ─────────────────────

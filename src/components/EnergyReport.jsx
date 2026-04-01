@@ -141,26 +141,36 @@ export function buildSkyContext(natal, transits) {
     ctx += '\n';
   }
 
-  // Calculate aspects if both charts available
+  // Calculate aspects if both charts available — scored by significance
   if (natal?.positions && transits?.positions) {
+    // Transit planet importance: outer planets are rare, slow, and more impactful
+    const TRANSIT_WEIGHT = { Pluto:10, Neptune:9, Uranus:8, Saturn:7, Jupiter:6, Chiron:5, Mars:4, Venus:3, Sun:2, Mercury:2, Moon:1 };
+    // Natal point importance: personal points are more felt
+    const NATAL_WEIGHT = { Sun:10, Moon:9, ASC:8, MC:7, Mercury:5, Venus:5, Mars:5, Jupiter:4, Saturn:4, Uranus:3, Neptune:3, Pluto:3, TrueNode:3, Chiron:3 };
+    // Aspect type importance: conjunctions and oppositions hit hardest
+    const ASPECT_WEIGHT = { conjunct:2, opposite:1.5, square:1.3, trine:1, sextile:0.8 };
+
     const aspects = [];
     Object.entries(transits.positions).forEach(([tp, tpos]) => {
+      if (tp.startsWith('_')) return; // skip _cusps etc
       const tAbs = toAbs(tpos.sign, tpos.degree, tpos.minute);
       const maxOrb = SLOW.includes(tp) ? 5 : 2;
       Object.entries(natal.positions).forEach(([np, npos]) => {
+        if (np.startsWith('_')) return;
         const nAbs = toAbs(npos.sign, npos.degree, npos.minute);
         const diff = orbBetween(tAbs, nAbs);
         ASPECTS.forEach(asp => {
           const orb = Math.abs(diff - asp.deg);
           if (orb <= maxOrb) {
-            aspects.push({ orb, tp, asp: asp.name, np });
+            const score = (TRANSIT_WEIGHT[tp] || 1) * (NATAL_WEIGHT[np] || 1) * (ASPECT_WEIGHT[asp.name] || 1) * (1 / Math.max(orb, 0.1));
+            aspects.push({ orb, tp, asp: asp.name, np, score });
           }
         });
       });
     });
-    aspects.sort((a,b) => a.orb - b.orb);
+    aspects.sort((a,b) => b.score - a.score);
     if (aspects.length > 0) {
-      ctx += 'TRANSIT-TO-NATAL ASPECTS (calculated, tight orbs only):\n';
+      ctx += 'TRANSIT-TO-NATAL ASPECTS (ranked by significance — outer planets to personal points first):\n';
       aspects.slice(0, 15).forEach((a, i) => {
         ctx += `${i+1}. Transit ${a.tp} ${a.asp} Natal ${a.np} — ${a.orb.toFixed(2)}° orb\n`;
       });
