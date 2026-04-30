@@ -149,10 +149,12 @@ export function buildSkyContext(natal, transits) {
     const NATAL_WEIGHT = { Sun:10, Moon:9, ASC:8, MC:7, Mercury:5, Venus:5, Mars:5, Jupiter:4, Saturn:4, Uranus:3, Neptune:3, Pluto:3, TrueNode:3, Chiron:3 };
     // Aspect type importance: conjunctions and oppositions hit hardest
     const ASPECT_WEIGHT = { conjunct:2, opposite:1.5, square:1.3, trine:1, sextile:0.8 };
+    // Speed tier: fast planets explain day-to-day shifts, slow planets are background
+    const FAST_PLANETS = new Set(['Moon','Sun','Mercury','Venus','Mars']);
 
     const aspects = [];
     Object.entries(transits.positions).forEach(([tp, tpos]) => {
-      if (tp.startsWith('_')) return; // skip _cusps etc
+      if (tp.startsWith('_')) return;
       const tAbs = toAbs(tpos.sign, tpos.degree, tpos.minute);
       const maxOrb = SLOW.includes(tp) ? 5 : 2;
       Object.entries(natal.positions).forEach(([np, npos]) => {
@@ -162,17 +164,38 @@ export function buildSkyContext(natal, transits) {
         ASPECTS.forEach(asp => {
           const orb = Math.abs(diff - asp.deg);
           if (orb <= maxOrb) {
-            const score = (TRANSIT_WEIGHT[tp] || 1) * (NATAL_WEIGHT[np] || 1) * (ASPECT_WEIGHT[asp.name] || 1) * (1 / Math.max(orb, 0.1));
-            aspects.push({ orb, tp, asp: asp.name, np, score });
+            // Base score: planet weight × natal weight × aspect weight × tightness
+            let score = (TRANSIT_WEIGHT[tp] || 1) * (NATAL_WEIGHT[np] || 1) * (ASPECT_WEIGHT[asp.name] || 1) * (1 / Math.max(orb, 0.1));
+            // Penalize slow planets with wide orbs — they've been there for weeks
+            if (SLOW.includes(tp) && orb > 1.5) score *= 0.4;
+            // Boost fast planets with tight orbs — they're the trigger right now
+            if (FAST_PLANETS.has(tp) && orb < 1) score *= 3;
+            const speed = FAST_PLANETS.has(tp) ? 'fast' : 'slow';
+            aspects.push({ orb, tp, asp: asp.name, np, score, speed });
           }
         });
       });
     });
     aspects.sort((a,b) => b.score - a.score);
-    if (aspects.length > 0) {
-      ctx += 'TRANSIT-TO-NATAL ASPECTS (ranked by significance — outer planets to personal points first):\n';
-      aspects.slice(0, 15).forEach((a, i) => {
-        ctx += `${i+1}. Transit ${a.tp} ${a.asp} Natal ${a.np} — ${a.orb.toFixed(2)}° orb\n`;
+
+    // Ensure mix: at least 1 fast trigger and 1 slow background in top results
+    const top = aspects.slice(0, 15);
+    const hasFast = top.some(a => a.speed === 'fast');
+    const hasSlow = top.some(a => a.speed === 'slow');
+    if (!hasFast) {
+      const firstFast = aspects.find(a => a.speed === 'fast');
+      if (firstFast) top.splice(3, 0, firstFast); // insert as #4
+    }
+    if (!hasSlow) {
+      const firstSlow = aspects.find(a => a.speed === 'slow');
+      if (firstSlow) top.splice(3, 0, firstSlow);
+    }
+
+    if (top.length > 0) {
+      ctx += 'TRANSIT-TO-NATAL ASPECTS (ranked by significance — fast triggers + slow background):\n';
+      top.slice(0, 15).forEach((a, i) => {
+        const tag = a.speed === 'fast' ? ' [trigger]' : ' [background]';
+        ctx += `${i+1}. Transit ${a.tp} ${a.asp} Natal ${a.np} — ${a.orb.toFixed(2)}° orb${tag}\n`;
       });
     }
   }

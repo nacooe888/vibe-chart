@@ -94,7 +94,7 @@ Respond with ONLY a valid JSON array, no markdown, no wrapper object:
   }
 ]
 
-IMPORTANT: Use the FIRST 3-4 transits from the TRANSIT-TO-NATAL ASPECTS list above — they are already ranked by significance (outer planet transits to personal natal points first). Do NOT reorder, skip, or invent aspects. If none listed, return [].`;
+IMPORTANT: Use the FIRST 3-4 transits from the TRANSIT-TO-NATAL ASPECTS list above — they are already ranked by significance. Transits tagged [trigger] are fast-moving planets causing today's specific mood shift. Transits tagged [background] are slow-moving planets that have been active for weeks — they are the deeper context, not the immediate cause. Lead with triggers when they exist. Do NOT reorder, skip, or invent aspects. If none listed, return [].`;
 }
 
 // ── Transit Deep Reading (full single-transit reading) ─────────────────────
