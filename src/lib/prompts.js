@@ -270,3 +270,65 @@ const PATTERN_LABELS = {
   'reciprocal': 'reciprocal transit',
   'convergence': 'convergence',
 };
+
+// ── Dekan Interpretation (per-planet reading through the Egyptian dekan) ────
+// Static reading — depends only on (planet, dekan), not on the user's full chart
+// or current sky. Cache permanently per planet+dekan combo.
+const PLANET_MEANING = {
+  Sun: 'core identity, vitality, the self you are becoming',
+  Moon: 'emotional nature, what soothes you, your inner home',
+  Mercury: 'how you think, speak, and connect ideas',
+  Venus: 'how you love, what you find beautiful, what you draw toward you',
+  Mars: 'desire, drive, how you fight for what you want',
+  Jupiter: 'where you expand, what blesses you, your faith',
+  Saturn: 'where you discipline, what you must build slowly, your spine',
+  Uranus: 'where you break form, what awakens you, your strangeness',
+  Neptune: 'where you dissolve, what calls you to mystery, your dreams',
+  Pluto: 'where you transform, what you must die into, your power',
+  TrueNode: 'the soul-direction you are growing into',
+  Chiron: 'the wound that becomes your medicine',
+  ASC: 'the face you wear, how the world first meets you',
+  MC: 'your public path, what you are seen building',
+};
+
+const PLANET_LABEL = {
+  Sun: 'Sun', Moon: 'Moon', Mercury: 'Mercury', Venus: 'Venus', Mars: 'Mars',
+  Jupiter: 'Jupiter', Saturn: 'Saturn', Uranus: 'Uranus', Neptune: 'Neptune', Pluto: 'Pluto',
+  TrueNode: 'North Node', Chiron: 'Chiron', ASC: 'Ascendant', MC: 'Midheaven',
+};
+
+export function dekanInterpretationPrompt(planet, dekan) {
+  const planetMeaning = PLANET_MEANING[planet] || planet;
+  const planetName = PLANET_LABEL[planet] || planet;
+  return `You are a warm, direct astrologer with deep knowledge of Egyptian dekanic astrology. Write an interpretation of what it means for someone's ${planetName} to fall in the dekan of ${dekan.name}.
+
+THE PLANET — ${planetName}:
+${planetName} represents ${planetMeaning}.
+
+THE DEKAN — ${dekan.name} (Dekan #${dekan.num} of the Seti I-B list):
+Position: ${dekan.deg}°${String(dekan.min).padStart(2,'0')}′ ${dekan.sign} sidereal (Fagan-Allen)
+Translation: ${dekan.meaning}
+Mythic context: ${dekan.story}
+Hermetic icon (Liber Hermetis / Agrippa): ${dekan.hermetic}
+
+VOICE — match these examples exactly:
+
+EXAMPLE — Sun in Sopdet:
+"Your core self rises with Sirius. There's a 70-day-underworld quality to how you become who you are — long disappearances followed by brilliant returns. You don't need to apologize for the gestation. The world will know you when you arrive."
+
+EXAMPLE — Mars in Shesmu:
+"Your desire is the wine-press — it crushes things to extract their essence. This isn't gentle, and it isn't supposed to be. Stop trying to make your drive more palatable. The fierceness IS the gift."
+
+EXAMPLE — Moon in Khentu Djeru:
+"Your emotional life lives at the boundary between order and chaos. You feel safest standing at the edge of things — neither fully in nor fully out. That's not avoidance, that's your post. The threshold is your home."
+
+Style notes:
+- Short punchy sentences. Em-dashes for rhythm.
+- Acknowledge the texture of the dekan FIRST (the myth, the image, the energy)
+- Show how that specific dekan colors THIS specific planet
+- End with permission, recognition, or a small instruction the reader can hold
+- No filler. No toxic positivity. No "you may find that..." — be direct.
+- Do NOT invent mythology. Stay within what's stated above.
+
+Write 3-5 sentences. Plain text only. No headings, no quotes, no JSON.`;
+}

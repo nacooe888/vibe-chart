@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { loadChart } from '../lib/chartStorage';
 import { getDekanForPosition, formatDekanStart } from '../lib/decans';
+import { dekanInterpretationPrompt } from '../lib/prompts';
+import { supabase } from '../lib/supabase';
 
 const PLANET_ORDER = ['Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune','Pluto','TrueNode','Chiron','ASC','MC'];
 
@@ -17,11 +19,42 @@ const PLANET_GLYPH = {
   TrueNode: '☊', Chiron: '⚷', ASC: 'ASC', MC: 'MC',
 };
 
+// Stable cache (does NOT rotate daily — interpretation is static per planet+dekan).
+const INTERP_KEY = (planet, dekanNum) => `dekan-interp-v1-${planet}-${dekanNum}`;
+
+function readInterp(planet, dekanNum) {
+  try { return localStorage.getItem(INTERP_KEY(planet, dekanNum)); } catch { return null; }
+}
+function writeInterp(planet, dekanNum, text) {
+  try { localStorage.setItem(INTERP_KEY(planet, dekanNum), text); } catch {}
+}
+
+async function fetchInterpretation(planet, dekan) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      temperature: 0,
+      messages: [{ role: 'user', content: dekanInterpretationPrompt(planet, dekan) }],
+    }),
+  });
+  if (!res.ok) throw new Error(`api ${res.status}`);
+  const data = await res.json();
+  return (data.content?.[0]?.text || '').trim();
+}
+
 export default function DecanChart() {
   const { user } = useAuth();
   const [natal, setNatal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedPlanet, setSelectedPlanet] = useState(null);
+  const [interps, setInterps] = useState({}); // { [planet]: { state, text, error } }
 
   useEffect(() => {
     if (!user) return;
@@ -42,9 +75,29 @@ export default function DecanChart() {
         .filter(x => x.dekan)
     : [];
 
-  const selected = selectedPlanet
-    ? placements.find(p => p.planet === selectedPlanet)
-    : null;
+  // When a planet is selected, ensure its interpretation is loaded (cache-first).
+  useEffect(() => {
+    if (!selectedPlanet) return;
+    const placement = placements.find(p => p.planet === selectedPlanet);
+    if (!placement) return;
+    if (interps[selectedPlanet]?.text || interps[selectedPlanet]?.state === 'loading') return;
+
+    const cached = readInterp(selectedPlanet, placement.dekan.num);
+    if (cached) {
+      setInterps(prev => ({ ...prev, [selectedPlanet]: { state: 'done', text: cached } }));
+      return;
+    }
+
+    setInterps(prev => ({ ...prev, [selectedPlanet]: { state: 'loading' } }));
+    fetchInterpretation(selectedPlanet, placement.dekan)
+      .then(text => {
+        writeInterp(selectedPlanet, placement.dekan.num, text);
+        setInterps(prev => ({ ...prev, [selectedPlanet]: { state: 'done', text } }));
+      })
+      .catch(err => {
+        setInterps(prev => ({ ...prev, [selectedPlanet]: { state: 'error', error: err.message } }));
+      });
+  }, [selectedPlanet, placements.length]);
 
   return (
     <div style={{
@@ -109,13 +162,10 @@ export default function DecanChart() {
 
         {placements.length > 0 && (
           <>
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {placements.map(({ planet, pos, dekan }) => {
                 const isOpen = selectedPlanet === planet;
+                const interp = interps[planet];
                 return (
                   <div key={planet}>
                     <button
@@ -182,8 +232,51 @@ export default function DecanChart() {
                         marginTop: 4,
                         border: '1px solid rgba(196,159,255,0.12)',
                       }}>
+                        {/* Personal interpretation — featured at the top */}
+                        <div style={{
+                          marginBottom: 18,
+                          paddingBottom: 18,
+                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                        }}>
+                          <div style={{
+                            fontSize: 10,
+                            letterSpacing: '0.22em',
+                            textTransform: 'uppercase',
+                            color: 'rgba(196,159,255,0.55)',
+                            marginBottom: 10,
+                          }}>
+                            your {PLANET_LABEL[planet]} in {dekan.name}
+                          </div>
+                          {interp?.state === 'loading' && (
+                            <div style={{
+                              fontSize: 13,
+                              fontStyle: 'italic',
+                              color: 'rgba(255,255,255,0.45)',
+                              animation: 'pulse 1.5s ease-in-out infinite',
+                            }}>
+                              reading the sky...
+                            </div>
+                          )}
+                          {interp?.state === 'error' && (
+                            <div style={{ fontSize: 13, color: '#FF7F9B', fontStyle: 'italic' }}>
+                              couldn't load reading — {interp.error}
+                            </div>
+                          )}
+                          {interp?.text && (
+                            <div style={{
+                              fontSize: 15,
+                              lineHeight: 1.7,
+                              color: 'rgba(255,255,255,0.88)',
+                              whiteSpace: 'pre-wrap',
+                            }}>
+                              {interp.text}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Mythic context */}
                         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 14, letterSpacing: '0.04em' }}>
-                          <span style={{ color: 'rgba(255,255,255,0.35)' }}>starts at</span> {formatDekanStart(dekan)}
+                          <span style={{ color: 'rgba(255,255,255,0.35)' }}>dekan starts at</span> {formatDekanStart(dekan)}
                           {dekan.meaning && (
                             <> · <em style={{ color: 'rgba(255,255,255,0.7)' }}>{dekan.meaning}</em></>
                           )}
@@ -193,7 +286,7 @@ export default function DecanChart() {
                           <div style={{
                             fontSize: 14,
                             lineHeight: 1.7,
-                            color: 'rgba(255,255,255,0.78)',
+                            color: 'rgba(255,255,255,0.72)',
                             marginBottom: 16,
                           }}>
                             {dekan.story}
@@ -217,7 +310,7 @@ export default function DecanChart() {
                             <div style={{
                               fontSize: 13,
                               lineHeight: 1.6,
-                              color: 'rgba(255,255,255,0.62)',
+                              color: 'rgba(255,255,255,0.58)',
                               fontStyle: 'italic',
                             }}>
                               {dekan.hermetic}
