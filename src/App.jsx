@@ -11,6 +11,7 @@ import ProfileScreen from './components/ProfileScreen'
 import ChatTab from './components/ChatTab'
 import TransitsTab from './components/TransitsTab'
 import DecanChart from './components/DecanChart'
+import VoiceNotesTab from './components/VoiceNotesTab'
 import { loadProfile } from './lib/profileStorage'
 import { identify, capture } from './lib/analytics'
 
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'ritual', label: '⟡ ritual' },
   { id: 'cycles', label: '◈ cycles' },
   { id: 'dekans', label: '𓂀 dekans' },
+  { id: 'voice', label: '◍ voice' },
   { id: 'chat', label: '◇ chat' },
 ]
 
@@ -123,6 +125,7 @@ function MainApp() {
       {activeTab === 'ritual' && <RitualTab />}
       {activeTab === 'cycles' && <CyclesTab />}
       {activeTab === 'dekans' && <DecanChart />}
+      {activeTab === 'voice' && <VoiceNotesTab />}
       {activeTab === 'chat' && <ChatTab initialQuestion={pendingChatQuestion} onQuestionConsumed={() => setPendingChatQuestion(null)} />}
 
       {/* Tab navigation */}
